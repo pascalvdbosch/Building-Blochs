@@ -42,7 +42,8 @@ const double coeffs[3][3] = {                          //reverse engineering Tje
 
 
 double pos[3] {0.};
-const double HALF_ROTATION(9450 / coeffs[2][1]);
+//const double HALF_ROTATION(9450 / coeffs[2][1]);
+const double HALF_ROTATION(3000 / coeffs[2][1]);
 const double MAX_SPEED(20000.0);
 const double ACCELERATION(2000.0);
 int iteration = 0;
@@ -194,7 +195,7 @@ void setup()
 
     digitalWrite(STP_EN, LOW);
 
-    digitalWrite(STP_MS1, LOW); //no microstepping seems ideal = LOW LOW LOW
+    digitalWrite(STP_MS1, HIGH); //eights microstepping seems ideal = HIGH HIGH LOW
     digitalWrite(STP_MS2, HIGH);
     digitalWrite(STP_MS3, LOW);
 
@@ -275,6 +276,8 @@ if(buttonGreen.isPressed()){
        strip.SetPixelColor(i,green);
     }
     strip.Show();
+    //do y
+    update_positions(update, (double[3]){0,1,0}, HALF_ROTATION);
 }
 
 if(buttonBlue.isPressed()){
@@ -283,6 +286,8 @@ if(buttonBlue.isPressed()){
        strip.SetPixelColor(i,blue);
     }
     strip.Show();
+    //do z
+    update_positions(update, (double[3]){0,0,1}, HALF_ROTATION);
 }
 
 if(buttonYellow.isPressed()){
@@ -291,6 +296,10 @@ if(buttonYellow.isPressed()){
        strip.SetPixelColor(i,yellow);
     }
     strip.Show();
+    //do h
+    update_positions(update, (double[3]){.707,0,.707}, HALF_ROTATION);
+   
+
 }
 
 
