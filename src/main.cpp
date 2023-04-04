@@ -3,7 +3,6 @@
 #include <DallasTemperature.h>
 #include <NeoPixelBus.h>
 #include <AccelStepper.h>
-
 #include "config.h"
 
 TaskHandle_t motorTask;
@@ -32,8 +31,6 @@ const double coeffs[3][3] = {                          //reverse engineering Tje
     {-0.40957602, -0.70940648, 0.57357644},            //-cos(35)/2,-(sqrt(3)/2)*cos(35),sin(35)
     {-0.40957602,  0.70940648, 0.57357644}             //-cos(35)/2,(sqrt(3)/2)*cos(35),sin(35)
 };
-
-
 
 
 double pos[3] {0.};
@@ -116,11 +113,11 @@ void setup()
     stepper1.moveTo(0);
 
     stepper2.setMaxSpeed(20000.0);
-    stepper2.setAcceleration(2000.0);
+    stepper2.setAcceleration(5000.0);
     stepper2.moveTo(0);
 
     stepper3.setMaxSpeed(20000.0);
-    stepper3.setAcceleration(2000.0);
+    stepper3.setAcceleration(5000.0);
     stepper3.moveTo(0);
 
     pinMode(STP_EN, OUTPUT);
@@ -131,7 +128,7 @@ void setup()
 
     digitalWrite(STP_EN, LOW);
 
-    digitalWrite(STP_MS1, HIGH); //eights microstepping seems ideal = HIGH HIGH LOW
+    digitalWrite(STP_MS1, LOW); //no microstepping seems ideal = LOW LOW LOW
     digitalWrite(STP_MS2, HIGH);
     digitalWrite(STP_MS3, LOW);
 
@@ -139,6 +136,10 @@ void setup()
     strip.SetPixelColor(1, green);
     strip.SetPixelColor(2, green);
     strip.SetPixelColor(3, green);
+    strip.SetPixelColor(4, green);
+    strip.SetPixelColor(5, green);
+    strip.SetPixelColor(6, green);
+    strip.SetPixelColor(7, green);
     strip.Show();
 
     disableCore0WDT(); //I disable the core becasue i dont have the WDT reset functions working yet

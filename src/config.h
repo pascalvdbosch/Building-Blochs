@@ -34,7 +34,7 @@
 
 #define ONE_WIRE_BUS 19
 
-#define LED_COUNT 4
+#define LED_COUNT 8
 #define LED_PIN 16
 #define LED_COLOR_SATURATION 128
 
