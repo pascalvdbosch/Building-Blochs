@@ -25,17 +25,16 @@ AccelStepper stepper1(AccelStepper::DRIVER, STPA_STEP, STPA_DIR);
 AccelStepper stepper2(AccelStepper::DRIVER, STPB_STEP, STPB_DIR);
 AccelStepper stepper3(AccelStepper::DRIVER, STPC_STEP, STPC_DIR);
 
-// const double coeffs[3][3] = {
-//     {-.8660254, 0., -.5},
-//     {.4330127, -.75, -.5},
-//     {.4330127, .75, -.5}
-// };
 
-const double coeffs[3][3] = {
-    {0.81915204,  -0.,         0.57357644},
-    {-0.40957602, -0.70940648, 0.57357644},
-    {-0.40957602,  0.70940648, 0.57357644}
+//coeffs for 35 degrees
+const double coeffs[3][3] = {                          //reverse engineering Tjeerd
+    {0.81915204,  -0.,         0.57357644},            //cos(35),0,sin(35)
+    {-0.40957602, -0.70940648, 0.57357644},            //-cos(35)/2,-(sqrt(3)/2)*cos(35),sin(35)
+    {-0.40957602,  0.70940648, 0.57357644}             //-cos(35)/2,(sqrt(3)/2)*cos(35),sin(35)
 };
+
+
+
 
 double pos[3] {0.};
 const double HALF_ROTATION(9450 / coeffs[2][1]);
@@ -159,6 +158,40 @@ void loop()
     // sensors.requestTemperatures();
     // Serial.print(sensors.getTempC(sensor1));
     // Serial.println(" *C Sensor ");
+#ifdef DEMO
+    while(1){
+         strip.SetPixelColor(0, blue);
+            strip.SetPixelColor(1, blue);
+            strip.SetPixelColor(2, blue);
+            strip.SetPixelColor(3, blue);
+            strip.Show();
+        update_positions(update, (double[3]){1,0,0}, HALF_ROTATION);
+        delay(5000);
+        update_positions(update, (double[3]){0,1,0}, HALF_ROTATION);
+        delay(5000);
+        update_positions(update, (double[3]){0,0,1}, HALF_ROTATION);
+         strip.SetPixelColor(0, red);
+            strip.SetPixelColor(1, red);
+            strip.SetPixelColor(2, red);
+            strip.SetPixelColor(3, red);
+            strip.Show();
+        delay(5000);
+        update_positions(update, (double[3]){.707,0,.707}, HALF_ROTATION);
+        delay(5000);
+        update_positions(update, (double[3]){0,0,1}, .5*HALF_ROTATION);
+        delay(5000);
+        strip.SetPixelColor(0, green);
+            strip.SetPixelColor(1, green);
+            strip.SetPixelColor(2, green);
+            strip.SetPixelColor(3, green);
+            strip.Show();
+        update_positions(update, (double[3]){0,0,1}, -.5*HALF_ROTATION);
+        delay(5000);
+        update_positions(update, (double[3]){0,0,1}, -.25*HALF_ROTATION);
+        delay(5000);
+    }
+#endif
+
 
     if (write_done)
     {
@@ -190,6 +223,13 @@ void loop()
             strip.SetPixelColor(1, green);
             strip.SetPixelColor(2, green);
             strip.SetPixelColor(3, green);
+            strip.Show();
+            break;
+        case (int)'b':
+            strip.SetPixelColor(0, blue);
+            strip.SetPixelColor(1, blue);
+            strip.SetPixelColor(2, blue);
+            strip.SetPixelColor(3, blue);
             strip.Show();
             break;
     }
