@@ -1,17 +1,10 @@
 #include <Arduino.h>
-#include <OneWire.h>
-#include <DallasTemperature.h>
 #include <NeoPixelBus.h>
 #include <AccelStepper.h>
 #include "config.h"
 #include <ezButton.h>
 
 TaskHandle_t motorTask;
-
-OneWire oneWire(ONE_WIRE_BUS); // OneWire data wire connected to GPIO19
-DallasTemperature sensors(&oneWire);
-
-DeviceAddress sensor1 = {0x28, 0xDA, 0xF2, 0xDE, 0xA, 0x0, 0x0, 0x4E};
 
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> strip(LED_COUNT, LED_PIN);
 
@@ -25,13 +18,11 @@ RgbColor green(0, LED_COLOR_SATURATION, 0);
 RgbColor blue(0, 0, LED_COLOR_SATURATION);
 RgbColor white(LED_COLOR_SATURATION);
 RgbColor yellow(LED_COLOR_SATURATION,LED_COLOR_SATURATION/2,0);
-
 RgbColor black(0);
 
 AccelStepper stepper1(AccelStepper::DRIVER, STPA_STEP, STPA_DIR);
 AccelStepper stepper2(AccelStepper::DRIVER, STPB_STEP, STPB_DIR);
 AccelStepper stepper3(AccelStepper::DRIVER, STPC_STEP, STPC_DIR);
-
 
 //coeffs for 35 degrees
 const double coeffs[3][3] = {                          //reverse engineering Tjeerd
@@ -42,10 +33,10 @@ const double coeffs[3][3] = {                          //reverse engineering Tje
 
 
 double pos[3] {0.};
-//const double HALF_ROTATION(9450 / coeffs[2][1]);
-const double HALF_ROTATION(3000 / coeffs[2][1]);
+//const double HALF_ROTATION(9450 / coeffs[2][1]); //for 250mm ball
+const double HALF_ROTATION(3000 / coeffs[2][1]); //for 149mm ball
 const double MAX_SPEED(20000.0);
-const double ACCELERATION(2000.0);
+const double ACCELERATION(5000.0);
 int iteration = 0;
 bool busy = false;
 bool ready = false;
@@ -69,12 +60,13 @@ void motorCall(void * parameter)
             if (busy)
             {
                 busy = false;
+                digitalWrite(STP_EN, HIGH); //motors off
                 write_done = true;
             }
             if (ready)
             {
                 busy = true;
-                
+                digitalWrite(STP_EN, LOW);//motors on
                 delay(30);
 
                 pos[0] += update[0];
@@ -163,20 +155,17 @@ void startupeffect(){
 
   // Delay before starting the next iteration of the loop
   delay(1000);
-
-
 }
 
 void setup()
 {
     Serial.begin(115200);
-    sensors.begin();
 
     strip.Begin();
     strip.Show();
 
     stepper1.setMaxSpeed(20000.0);
-    stepper1.setAcceleration(2000.0);
+    stepper1.setAcceleration(5000.0);
     stepper1.moveTo(0);
 
     stepper2.setMaxSpeed(20000.0);
@@ -188,198 +177,55 @@ void setup()
     stepper3.moveTo(0);
 
     pinMode(STP_EN, OUTPUT);
-
     pinMode(STP_MS1, OUTPUT);
     pinMode(STP_MS2, OUTPUT);
     pinMode(STP_MS2, OUTPUT);
 
-    digitalWrite(STP_EN, LOW);
-
-    digitalWrite(STP_MS1, HIGH); //eights microstepping seems ideal = HIGH HIGH LOW
+    digitalWrite(STP_EN, HIGH);     //enable pin,high is disabled motors
+    digitalWrite(STP_MS1, HIGH);    //eights microstepping seems ideal = HIGH HIGH LOW
     digitalWrite(STP_MS2, HIGH);
     digitalWrite(STP_MS3, LOW);
 
-
-
-
     //startupeffect();
 
-    
     disableCore0WDT(); //I disable the core becasue i dont have the WDT reset functions working yet
     xTaskCreatePinnedToCore(motorCall, "motorTask", 1000, NULL, 1, &motorTask, 0);
 }
 
-double read_param()
-{
-    // almost, we use the edge case 128/-128 differently
-    int num = -1;
-    while (num == -1) {num = Serial.read();}
-    return ((double)num) / 127 - 1.0;
-}
-
 void loop()
 {
-    // sensors.requestTemperatures();
-    // Serial.print(sensors.getTempC(sensor1));
-    // Serial.println(" *C Sensor ");
-#ifdef DEMO
-    while(1){
-         strip.SetPixelColor(0, blue);
-            strip.SetPixelColor(1, blue);
-            strip.SetPixelColor(2, blue);
-            strip.SetPixelColor(3, blue);
+    buttonRed.loop();
+    buttonGreen.loop();
+    buttonBlue.loop();
+    buttonYellow.loop();
+
+    if (!busy){ 
+        if(buttonRed.isPressed()){
+            for (uint32_t i = 0; i < LED_COUNT; i++){
+            strip.SetPixelColor(i,red); }
             strip.Show();
-        update_positions(update, (double[3]){1,0,0}, HALF_ROTATION);
-        delay(5000);
-        update_positions(update, (double[3]){0,1,0}, HALF_ROTATION);
-        delay(5000);
-        update_positions(update, (double[3]){0,0,1}, HALF_ROTATION);
-         strip.SetPixelColor(0, red);
-            strip.SetPixelColor(1, red);
-            strip.SetPixelColor(2, red);
-            strip.SetPixelColor(3, red);
+            update_positions(update, (double[3]){1,0,0}, HALF_ROTATION);//do X
+        }
+
+        if(buttonGreen.isPressed()){
+            for (uint32_t i = 0; i < LED_COUNT; i++){
+            strip.SetPixelColor(i,green);}
             strip.Show();
-        delay(5000);
-        update_positions(update, (double[3]){.707,0,.707}, HALF_ROTATION);
-        delay(5000);
-        update_positions(update, (double[3]){0,0,1}, .5*HALF_ROTATION);
-        delay(5000);
-        strip.SetPixelColor(0, green);
-            strip.SetPixelColor(1, green);
-            strip.SetPixelColor(2, green);
-            strip.SetPixelColor(3, green);
+            update_positions(update, (double[3]){0,1,0}, HALF_ROTATION);//do y
+        }
+
+        if(buttonBlue.isPressed()){
+            for (uint32_t i = 0; i < LED_COUNT; i++){
+            strip.SetPixelColor(i,blue);}
             strip.Show();
-        update_positions(update, (double[3]){0,0,1}, -.5*HALF_ROTATION);
-        delay(5000);
-        update_positions(update, (double[3]){0,0,1}, -.25*HALF_ROTATION);
-        delay(5000);
-    }
-#endif
-buttonRed.loop();
-buttonGreen.loop();
-buttonBlue.loop();
-buttonYellow.loop();
+            update_positions(update, (double[3]){0,0,1}, HALF_ROTATION);//do z
+        }
 
-if(buttonRed.isPressed()){
-    for (uint32_t i = 0; i < LED_COUNT; i++)
-    {
-       strip.SetPixelColor(i,red);
-    }
-    strip.Show();
-    //do X
-    update_positions(update, (double[3]){1,0,0}, HALF_ROTATION);
-}
-
-if(buttonGreen.isPressed()){
-    for (uint32_t i = 0; i < LED_COUNT; i++)
-    {
-       strip.SetPixelColor(i,green);
-    }
-    strip.Show();
-    //do y
-    update_positions(update, (double[3]){0,1,0}, HALF_ROTATION);
-}
-
-if(buttonBlue.isPressed()){
-    for (uint32_t i = 0; i < LED_COUNT; i++)
-    {
-       strip.SetPixelColor(i,blue);
-    }
-    strip.Show();
-    //do z
-    update_positions(update, (double[3]){0,0,1}, HALF_ROTATION);
-}
-
-if(buttonYellow.isPressed()){
-    for (uint32_t i = 0; i < LED_COUNT; i++)
-    {
-       strip.SetPixelColor(i,yellow);
-    }
-    strip.Show();
-    //do h
-    update_positions(update, (double[3]){.707,0,.707}, HALF_ROTATION);
-   
-
-}
-
-
-
-    if (write_done)
-    {
-        Serial.write((int)'d');
-        write_done = false;
-    }
-
-    int data = 0;
-    data = Serial.read();
-    
-    // This might be useful for debugging purposes in the future
-    /*if (data != -1)
-    {
-        Serial.print("Received data:");
-        Serial.println(data);
-    }*/
-
-    switch (data)
-    {
-        case (int)'r':
-            strip.SetPixelColor(0, red);
-            strip.SetPixelColor(1, red);
-            strip.SetPixelColor(2, red);
-            strip.SetPixelColor(3, red);
+        if(buttonYellow.isPressed()){
+            for (uint32_t i = 0; i < LED_COUNT; i++){
+            strip.SetPixelColor(i,yellow);}
             strip.Show();
-            break;
-        case (int)'g':
-            strip.SetPixelColor(0, green);
-            strip.SetPixelColor(1, green);
-            strip.SetPixelColor(2, green);
-            strip.SetPixelColor(3, green);
-            strip.Show();
-            break;
-        case (int)'b':
-            strip.SetPixelColor(0, blue);
-            strip.SetPixelColor(1, blue);
-            strip.SetPixelColor(2, blue);
-            strip.SetPixelColor(3, blue);
-            strip.Show();
-            break;
-    }
-    if (!busy)
-    {
-        switch(data)
-        {
-            case (int)'x':
-                update_positions(update, (double[3]){1,0,0}, HALF_ROTATION);
-                break;
-            case (int)'y':
-                update_positions(update, (double[3]){0,1,0}, HALF_ROTATION);
-                break;
-            case (int)'z':
-                update_positions(update, (double[3]){0,0,1}, HALF_ROTATION);
-                break;
-            case (int)'h':
-                update_positions(update, (double[3]){.707,0,.707}, HALF_ROTATION);
-                break;
-            case (int)'s':
-                update_positions(update, (double[3]){0,0,1}, .5*HALF_ROTATION);
-                break;
-            case (int)'S':
-                update_positions(update, (double[3]){0,0,1}, -.5*HALF_ROTATION);
-                break;
-            case (int)'t':
-                update_positions(update, (double[3]){0,0,1}, .25*HALF_ROTATION);
-                break;
-            case (int)'T':
-                update_positions(update, (double[3]){0,0,1}, -.25*HALF_ROTATION);
-                break;
-            case (int)'u':
-                double x = read_param();
-                double y = read_param();
-                double z = read_param();
-                double angle = read_param();
-                update_positions(update, (double[3]){x,y,z}, angle * HALF_ROTATION);
-                break;
+            update_positions(update, (double[3]){.707,0,.707}, HALF_ROTATION);//do h
         }
     }
-    delay(100);
 }

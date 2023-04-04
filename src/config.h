@@ -1,22 +1,7 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
-#define VERSIONSTR "20190704a"
-
-// DEBUG Switches
-#ifdef DEBUG
-# define DEBUG_LEVEL 1
-# define TX_INTERVAL 500
-#else
-# define DEBUG_LEVEL 0
-# define TX_INTERVAL 5
-#endif
-
-#define DATALOG_INTERVAL TX_INTERVAL * 2
-
-#define MOTOR_STEPS 200
-#define RPM 120
-#define MICROSTEPS 2
+#define VERSIONSTR "20230404a"
 
 #define STPA_DIR 26
 #define STPA_STEP 25
@@ -36,9 +21,6 @@
 #define BUT_GREEN 39
 #define BUT_BLUE 36
 #define BUT_YELLOW 4
-
-
-#define ONE_WIRE_BUS 19
 
 #define LED_COUNT 8
 #define LED_PIN 16
