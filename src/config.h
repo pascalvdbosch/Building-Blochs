@@ -32,6 +32,12 @@
 #define STP_MS2 22
 #define STP_MS3 32
 
+#define BUT_RED 34
+#define BUT_GREEN 39
+#define BUT_BLUE 36
+#define BUT_YELLOW 4
+
+
 #define ONE_WIRE_BUS 19
 
 #define LED_COUNT 8
