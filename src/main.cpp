@@ -218,7 +218,7 @@ void loop()
             for (uint32_t i = 0; i < LED_COUNT; i++){
             strip.SetPixelColor(i,blue);}
             strip.Show();
-            update_positions(update, (double[3]){0,0,1}, HALF_ROTATION);//do z
+            update_positions(update, (double[3]){0,0,1}, .5*HALF_ROTATION);//do s
         }
 
         if(buttonYellow.isPressed()){
