@@ -101,61 +101,6 @@ void motorCall(void * parameter)
     }
 }
 
-void startupeffect(){
-  RgbColor led1Color = RgbColor(255, 255, 0); // Yellow
-  RgbColor led3Color = RgbColor(0, 0, 255); // Blue
-  RgbColor led5Color = RgbColor(0, 255, 0); // Green
-  RgbColor led7Color = RgbColor(255, 0, 0); // Red
-
-  // Set the initial colors of the odd-numbered LEDs
-  strip.SetPixelColor(0, led1Color);
-  strip.SetPixelColor(2, led3Color);
-  strip.SetPixelColor(4, led5Color);
-  strip.SetPixelColor(6, led7Color);
-  strip.Show();
-
-  // Define the target color for each LED (white)
-  RgbColor targetColor = RgbColor(255, 255, 255);
-
-  // Blend the colors of the odd-numbered LEDs into white while rotating the LEDs
-  float blendAmount = 0;
-  float blendSpeed = 0.0004; // Adjust this value to change the speed of the blend
-  float rotationSpeed = 0.1; // Adjust this value to change the speed of the rotation
-  
-  RgbColor oddColors[] = {led1Color, strip.GetPixelColor(1), led3Color, strip.GetPixelColor(3), led5Color, strip.GetPixelColor(5), led7Color, strip.GetPixelColor(7)};
-  while (blendAmount < 1) {
-    // Blend the colors of the odd-numbered LEDs into white
-    for (int i = 0; i < LED_COUNT; i+=2) {
-      RgbColor blendedColor = RgbColor::LinearBlend(oddColors[i], targetColor, blendAmount);
-      oddColors[i] = blendedColor;
-    }
-    
-    // Update the colors of the odd-numbered LEDs at the new rotated positions
-    for (int i = 0; i < LED_COUNT; i+=2) {
-      strip.SetPixelColor((i+2)%LED_COUNT, oddColors[i]);
-    }
-
-    // Rotate the LEDs
-    strip.RotateRight(1);
-
-    // Show the updated LED colors and rotation
-    strip.Show();
-
-    // Increase the blend amount and rotation for the next iteration
-    blendAmount += blendSpeed;
-    rotationSpeed += 0.01; // Adjust this value to change the speed of the rotation
-
-    // Wait a short amount of time before the next iteration
-    delay(10);
-  }
-
-  // Turn off all LEDs
-  strip.ClearTo(RgbColor(0, 0, 0));
-  strip.Show();
-
-  // Delay before starting the next iteration of the loop
-  delay(1000);
-}
 
 void setup()
 {
@@ -185,8 +130,6 @@ void setup()
     digitalWrite(STP_MS1, HIGH);    //eights microstepping seems ideal = HIGH HIGH LOW
     digitalWrite(STP_MS2, HIGH);
     digitalWrite(STP_MS3, LOW);
-
-    //startupeffect();
 
     disableCore0WDT(); //I disable the core becasue i dont have the WDT reset functions working yet
     xTaskCreatePinnedToCore(motorCall, "motorTask", 1000, NULL, 1, &motorTask, 0);
