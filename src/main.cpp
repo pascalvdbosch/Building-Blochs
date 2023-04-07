@@ -39,8 +39,6 @@ Vector3d update;
 void update_rotation(Vector3d axis, const double angle)
 {
     update = MotorMapping * axis * angle;
-    // Serial.printf("Update2: %0.3f %0.3f %0.3f\n", u[0], u[1], u[2]);
-    // Serial.printf("Update2: %0.3f %0.3f %0.3f\n", u(0), u(1), u(2));
     ready = true;
 };
 
