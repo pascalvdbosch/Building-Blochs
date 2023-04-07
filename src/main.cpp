@@ -23,18 +23,25 @@ RgbColor black(0);
 AccelStepper stepper1(AccelStepper::DRIVER, STPA_STEP, STPA_DIR);
 AccelStepper stepper2(AccelStepper::DRIVER, STPB_STEP, STPB_DIR);
 AccelStepper stepper3(AccelStepper::DRIVER, STPC_STEP, STPC_DIR);
-
+/*
 //coeffs for 35 degrees
 const double coeffs[3][3] = {                          //reverse engineering Tjeerd
     {0.81915204,  -0.,         0.57357644},            //cos(35),0,sin(35)
     {-0.40957602, -0.70940648, 0.57357644},            //-cos(35)/2,-(sqrt(3)/2)*cos(35),sin(35)
     {-0.40957602,  0.70940648, 0.57357644}             //-cos(35)/2,(sqrt(3)/2)*cos(35),sin(35)
+};*/
+
+//coeffs for 28.5 degrees
+const double coeffs[3][3] = {
+    {0.87881711, 0.00000000, 0.47715876},
+    {-0.43940856, -0.76107794, 0.47715876},
+    {-0.43940856, 0.76107794, 0.47715876}
 };
 
 
 double pos[3] {0.};
 //const double HALF_ROTATION(9450 / coeffs[2][1]); //for 250mm ball
-const double HALF_ROTATION(3000 / coeffs[2][1]); //for 149mm ball
+const double HALF_ROTATION(2990 / coeffs[2][1]); //for 149mm ball
 const double MAX_SPEED(20000.0);
 const double ACCELERATION(5000.0);
 int iteration = 0;
@@ -131,6 +138,11 @@ void setup()
     digitalWrite(STP_MS2, HIGH);
     digitalWrite(STP_MS3, LOW);
 
+    digitalWrite(STP_EN, LOW);//motors on to align coils
+    delay(100);
+    digitalWrite(STP_EN, HIGH); //motors off
+
+
     disableCore0WDT(); //I disable the core becasue i dont have the WDT reset functions working yet
     xTaskCreatePinnedToCore(motorCall, "motorTask", 1000, NULL, 1, &motorTask, 0);
 }
@@ -161,14 +173,14 @@ void loop()
             for (uint32_t i = 0; i < LED_COUNT; i++){
             strip.SetPixelColor(i,blue);}
             strip.Show();
-            update_positions(update, (double[3]){0,0,1}, .5*HALF_ROTATION);//do s
+            update_positions(update, (double[3]){0,0,1}, .548*HALF_ROTATION);//do s, tuned this line for movement accuracy
         }
 
         if(buttonYellow.isPressed()){
             for (uint32_t i = 0; i < LED_COUNT; i++){
             strip.SetPixelColor(i,yellow);}
             strip.Show();
-            update_positions(update, (double[3]){.707,0,.707}, HALF_ROTATION);//do h
+            update_positions(update, (double[3]){.690,0,.750}, HALF_ROTATION);//do h, tuned this line for movement accuracy
         }
     }
 }
