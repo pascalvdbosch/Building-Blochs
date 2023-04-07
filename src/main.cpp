@@ -3,6 +3,9 @@
 #include <AccelStepper.h>
 #include "config.h"
 #include <ezButton.h>
+#include <ArduinoEigenDense.h>
+
+using namespace Eigen;
 
 TaskHandle_t motorTask;
 
@@ -23,41 +26,27 @@ RgbColor black(0);
 AccelStepper stepper1(AccelStepper::DRIVER, STPA_STEP, STPA_DIR);
 AccelStepper stepper2(AccelStepper::DRIVER, STPB_STEP, STPB_DIR);
 AccelStepper stepper3(AccelStepper::DRIVER, STPC_STEP, STPC_DIR);
-/*
-//coeffs for 35 degrees
-const double coeffs[3][3] = {                          //reverse engineering Tjeerd
-    {0.81915204,  -0.,         0.57357644},            //cos(35),0,sin(35)
-    {-0.40957602, -0.70940648, 0.57357644},            //-cos(35)/2,-(sqrt(3)/2)*cos(35),sin(35)
-    {-0.40957602,  0.70940648, 0.57357644}             //-cos(35)/2,(sqrt(3)/2)*cos(35),sin(35)
-};*/
 
-//coeffs for 28.5 degrees
-const double coeffs[3][3] = {
-    {0.87881711, 0.00000000, 0.47715876},
-    {-0.43940856, -0.76107794, 0.47715876},
-    {-0.43940856, 0.76107794, 0.47715876}
-};
-
-
-double pos[3] {0.};
-//const double HALF_ROTATION(9450 / coeffs[2][1]); //for 250mm ball
-const double HALF_ROTATION(2990 / coeffs[2][1]); //for 149mm ball
+Matrix3d MotorMapping; // initialized in setup()
+double pos[3] {0, 0, 0};
+double HALF_ROTATION = 0; // initialized in setup() as it need MotorMapping
 const double MAX_SPEED(20000.0);
 const double ACCELERATION(5000.0);
 int iteration = 0;
 bool busy = false;
 bool ready = false;
 bool write_done = false;
-double update[3] = {0.};
+Vector3d update;
 
-void update_positions(double (&update)[3], const double (&u)[3], const double theta)
+void update_rotation(Vector3d axis, const double angle)
 {
-    update[0] = (coeffs[0][0] * u[0] + coeffs[0][1] * u[1] + coeffs[0][2] * u[2]) * theta;
-    update[1] = (coeffs[1][0] * u[0] + coeffs[1][1] * u[1] + coeffs[1][2] * u[2]) * theta;
-    update[2] = (coeffs[2][0] * u[0] + coeffs[2][1] * u[1] + coeffs[2][2] * u[2]) * theta;
+    update = MotorMapping * axis * angle;
+    // Serial.printf("Update2: %0.3f %0.3f %0.3f\n", u[0], u[1], u[2]);
+    // Serial.printf("Update2: %0.3f %0.3f %0.3f\n", u(0), u(1), u(2));
     ready = true;
-}
+};
 
+/* CORE 1 */
 void motorCall(void * parameter)
 {
     for(;;){
@@ -108,7 +97,6 @@ void motorCall(void * parameter)
     }
 }
 
-
 void setup()
 {
     Serial.begin(115200);
@@ -142,10 +130,23 @@ void setup()
     delay(100);
     digitalWrite(STP_EN, HIGH); //motors off
 
+    // Generate Movement Matrix
+    // MotorMapping = generateMotorMatrix(28.5, 30);
+    // Generated with block.js with angle = 28.5 and z_rot = PI/6
+    MotorMapping << 0.76107794, -0.43940856, 0.47715876,
+                -0.76107794, -0.43940856, 0.47715876,
+                -0.00000000, 0.87881711, 0.47715876;
+    // HALF_ROTATION = 9450 / MotorMapping(2, 1); //for 250mm ball
+    HALF_ROTATION = 3930; // for 149mm ball
+
+    // Serial.println("MotorMapping = ");
+    // Serial.printf("\t%f %f %f\n", MotorMapping(0,0), MotorMapping(0,1), MotorMapping(0,2));
+    // Serial.printf("\t%f %f %f\n", MotorMapping(1,0), MotorMapping(1,1), MotorMapping(1,2));
+    // Serial.printf("\t%f %f %f\n", MotorMapping(2,0), MotorMapping(2,1), MotorMapping(2,2));
 
     disableCore0WDT(); //I disable the core becasue i dont have the WDT reset functions working yet
     xTaskCreatePinnedToCore(motorCall, "motorTask", 1000, NULL, 1, &motorTask, 0);
-}
+};
 
 void loop()
 {
@@ -154,33 +155,44 @@ void loop()
     buttonBlue.loop();
     buttonYellow.loop();
 
+    const Vector3d VECTOR_X(1,0,0);
+    const Vector3d VECTOR_Y(0,1,0);
+    const Vector3d VECTOR_Z(0,0,1);
+    const Vector3d VECTOR_H(sqrt(2)/2, 0, sqrt(2)/2);
+    // const Vector3d VECTOR_H(.690, 0, .750);
+
     if (!busy){ 
         if(buttonRed.isPressed()){
             for (uint32_t i = 0; i < LED_COUNT; i++){
             strip.SetPixelColor(i,red); }
             strip.Show();
-            update_positions(update, (double[3]){1,0,0}, HALF_ROTATION);//do X
+            // update_positions((double[3]){1,0,0}, HALF_ROTATION);//do X
+            update_rotation(VECTOR_X, HALF_ROTATION);
         }
 
         if(buttonGreen.isPressed()){
             for (uint32_t i = 0; i < LED_COUNT; i++){
             strip.SetPixelColor(i,green);}
             strip.Show();
-            update_positions(update, (double[3]){0,1,0}, HALF_ROTATION);//do y
+            // update_positions(update, (double[3]){0,1,0}, HALF_ROTATION);//do y
+            update_rotation(VECTOR_Y, HALF_ROTATION);
         }
 
         if(buttonBlue.isPressed()){
             for (uint32_t i = 0; i < LED_COUNT; i++){
             strip.SetPixelColor(i,blue);}
             strip.Show();
-            update_positions(update, (double[3]){0,0,1}, .548*HALF_ROTATION);//do s, tuned this line for movement accuracy
+            update_rotation(VECTOR_Z, HALF_ROTATION * 0.548);
+            // update_positions(update, (double[3]){0,0,1}, .548*HALF_ROTATION);//do s, tuned this line for movement accuracy
         }
 
         if(buttonYellow.isPressed()){
             for (uint32_t i = 0; i < LED_COUNT; i++){
             strip.SetPixelColor(i,yellow);}
             strip.Show();
-            update_positions(update, (double[3]){.690,0,.750}, HALF_ROTATION);//do h, tuned this line for movement accuracy
+            update_rotation(VECTOR_H, HALF_ROTATION);
+            // update_positions(update, (double[3]){.690,0,.750}, HALF_ROTATION);//do h, tuned this line for movement accuracy
         }
     }
 }
+
