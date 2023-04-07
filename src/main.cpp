@@ -2,19 +2,17 @@
 #include <NeoPixelBus.h>
 #include <AccelStepper.h>
 #include "config.h"
-#include <ezButton.h>
 #include <ArduinoEigenDense.h>
 
+#include "keys.h"
+
 using namespace Eigen;
+
+uint32_t scan_keys();
 
 TaskHandle_t motorTask;
 
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> strip(LED_COUNT, LED_PIN);
-
-ezButton buttonRed(BUT_RED);
-ezButton buttonGreen(BUT_GREEN);
-ezButton buttonBlue(BUT_BLUE);
-ezButton buttonYellow(BUT_YELLOW);
 
 RgbColor red(LED_COLOR_SATURATION, 0, 0);
 RgbColor green(0, LED_COLOR_SATURATION, 0);
@@ -130,6 +128,11 @@ void setup()
     delay(100);
     digitalWrite(STP_EN, HIGH); //motors off
 
+    pinMode(BUT_RED, INPUT_PULLUP);
+    pinMode(BUT_GREEN, INPUT_PULLUP);
+    pinMode(BUT_BLUE, INPUT_PULLUP);
+    pinMode(BUT_YELLOW, INPUT_PULLUP);
+
     // Generate Movement Matrix
     // MotorMapping = generateMotorMatrix(28.5, 30);
     // Generated with block.js with angle = 28.5 and z_rot = PI/6
@@ -150,49 +153,103 @@ void setup()
 
 void loop()
 {
-    buttonRed.loop();
-    buttonGreen.loop();
-    buttonBlue.loop();
-    buttonYellow.loop();
+    // if busy, skip key handling
+    if(busy)
+        return;
+
+    // read keys and convert to event
+    keypress_t key = static_cast<keypress_t>(key2event(scan_keys()));
 
     const Vector3d VECTOR_X(1,0,0);
     const Vector3d VECTOR_Y(0,1,0);
     const Vector3d VECTOR_Z(0,0,1);
     const Vector3d VECTOR_H(sqrt(2)/2, 0, sqrt(2)/2);
     // const Vector3d VECTOR_H(.690, 0, .750);
-
-    if (!busy){ 
-        if(buttonRed.isPressed()){
-            for (uint32_t i = 0; i < LED_COUNT; i++){
-            strip.SetPixelColor(i,red); }
+    switch(key)
+    {
+        case KEY_RED:
+        {
+            // Serial.printf("KEY_RED\n");
+            // if(not_in_cucle_led)
+            //     cycle_led(red)
+        }; break; 
+        case KEY_RED_SHORT:
+        {
+            Serial.printf("KEY_RED_SHORT\n");
+            for (uint32_t i = 0; i < LED_COUNT; i++)
+            {
+                strip.SetPixelColor(i,red);
+            };
             strip.Show();
-            // update_positions((double[3]){1,0,0}, HALF_ROTATION);//do X
+
             update_rotation(VECTOR_X, HALF_ROTATION);
-        }
+        }; break;
+        case KEY_RED_LONG:
+        {
+            Serial.printf("KEY_RED_LONG\n");
+            // longkey = KEY_RED;
+        }; break;
+        case KEY_RED_LONG_REPEAT:
+        {
+            Serial.printf("KEY_RED_LONG_REPEAT\n");
+        }; break;
 
-        if(buttonGreen.isPressed()){
-            for (uint32_t i = 0; i < LED_COUNT; i++){
-            strip.SetPixelColor(i,green);}
+        case KEY_LONG_RELEASED:
+            Serial.printf("KEY_RELEASED");
+        case KEY_NONE:
+        {
+            // if(cycling_leds)
+            //   cycle_led(none)
+        }; break;
+
+        case KEY_GREEN_SHORT:
+        {
+            Serial.printf("KEY_GREEN_SHORT\n");
+            for (uint32_t i = 0; i < LED_COUNT; i++)
+            {
+                strip.SetPixelColor(i,green);
+            };
             strip.Show();
-            // update_positions(update, (double[3]){0,1,0}, HALF_ROTATION);//do y
             update_rotation(VECTOR_Y, HALF_ROTATION);
-        }
+        }; break;
 
-        if(buttonBlue.isPressed()){
-            for (uint32_t i = 0; i < LED_COUNT; i++){
-            strip.SetPixelColor(i,blue);}
+        case KEY_BLUE_SHORT:
+        {
+            Serial.printf("KEY_BLUE_SHORT\n");
+            for (uint32_t i = 0; i < LED_COUNT; i++)
+            {
+                strip.SetPixelColor(i,blue);
+            };
             strip.Show();
             update_rotation(VECTOR_Z, HALF_ROTATION * 0.548);
-            // update_positions(update, (double[3]){0,0,1}, .548*HALF_ROTATION);//do s, tuned this line for movement accuracy
-        }
-
-        if(buttonYellow.isPressed()){
-            for (uint32_t i = 0; i < LED_COUNT; i++){
-            strip.SetPixelColor(i,yellow);}
+        }; break;
+    
+        case KEY_YELLOW_SHORT:
+        {
+            Serial.printf("KEY_YELLOW_SHORT\n");
+            for (uint32_t i = 0; i < LED_COUNT; i++)
+            {
+                strip.SetPixelColor(i, yellow);
+            };
             strip.Show();
             update_rotation(VECTOR_H, HALF_ROTATION);
-            // update_positions(update, (double[3]){.690,0,.750}, HALF_ROTATION);//do h, tuned this line for movement accuracy
-        }
-    }
-}
+        }; break;
 
+        default: break;
+    };
+};
+
+uint32_t scan_keys()
+{
+	// Read current states
+	uint32_t pressed = KEY_NONE;
+	if(digitalRead(BUT_RED) == LOW)
+		pressed |= KEY_RED;
+	if(digitalRead(BUT_GREEN) == LOW)
+		pressed |= KEY_GREEN;
+	if(digitalRead(BUT_BLUE) == LOW)
+		pressed |= KEY_BLUE;
+	if(digitalRead(BUT_YELLOW) == LOW)
+		pressed |= KEY_YELLOW;
+	return pressed;
+};
