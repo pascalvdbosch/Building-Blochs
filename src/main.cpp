@@ -3,10 +3,17 @@
 #include <AccelStepper.h>
 #include "config.h"
 #include <ezButton.h>
+#include <NeoPixelAnimator.h>
+
+
 
 TaskHandle_t motorTask;
 
+const uint16_t TailLength = 6; // length of the tail, must be shorter than PixelCount
+const float MaxLightness = 0.5f; // max lightness at the head of the tail (0.5f is full bright)
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> strip(LED_COUNT, LED_PIN);
+NeoGamma<NeoGammaTableMethod> colorGamma;
+NeoPixelAnimator animations(1); // NeoPixel animation management object
 
 ezButton buttonRed(BUT_RED);
 ezButton buttonGreen(BUT_GREEN);
@@ -17,8 +24,9 @@ RgbColor red(LED_COLOR_SATURATION, 0, 0);
 RgbColor green(0, LED_COLOR_SATURATION, 0);
 RgbColor blue(0, 0, LED_COLOR_SATURATION);
 RgbColor white(LED_COLOR_SATURATION);
-RgbColor yellow(LED_COLOR_SATURATION,LED_COLOR_SATURATION/2,0);
+RgbColor yellow(LED_COLOR_SATURATION*1.5,LED_COLOR_SATURATION/3,0);
 RgbColor black(0);
+RgbColor warmwhite(LED_COLOR_SATURATION*0.49, LED_COLOR_SATURATION*0.47, LED_COLOR_SATURATION*0.4);
 
 AccelStepper stepper1(AccelStepper::DRIVER, STPA_STEP, STPA_DIR);
 AccelStepper stepper2(AccelStepper::DRIVER, STPB_STEP, STPB_DIR);
@@ -49,6 +57,41 @@ bool busy = false;
 bool ready = false;
 bool write_done = false;
 double update[3] = {0.};
+bool animationRunning = false;
+
+void LoopAnimUpdate(const AnimationParam& param)
+{
+    // wait for this animation to complete,
+    // we are using it as a timer of sorts
+    if (param.state == AnimationState_Completed)
+    {
+        // done, time to restart this position tracking animation/timer
+        animations.RestartAnimation(param.index);
+
+        // rotate the complete strip one pixel to the right on every update
+        strip.RotateRight(1);
+    }
+}
+
+void drawAllLeds(RgbColor colorToDraw){
+    for (uint32_t i = 0; i < LED_COUNT; i++){
+                strip.SetPixelColor(i,colorToDraw); 
+    }
+    strip.Show();
+}
+
+void DrawTailPixels(float hue)
+{
+    // using Hsl as it makes it easy to pick from similiar saturated colors
+   
+    for (uint16_t index = 0; index < strip.PixelCount() && index <= TailLength; index++)
+    {
+        float lightness = index * MaxLightness / TailLength;
+        RgbColor color = HslColor(hue, 1.0f, lightness);
+
+        strip.SetPixelColor(index, colorGamma.Correct(color));
+    }
+}
 
 void update_positions(double (&update)[3], const double (&u)[3], const double theta)
 {
@@ -66,8 +109,9 @@ void motorCall(void * parameter)
             double max_update = max(max(abs(update[0]), abs(update[1])), abs(update[2]));
             if (busy)
             {
-                busy = false;
+                drawAllLeds(warmwhite);
                 digitalWrite(STP_EN, HIGH); //motors off
+                busy = false;
                 write_done = true;
             }
             if (ready)
@@ -128,6 +172,11 @@ void setup()
     stepper3.setAcceleration(5000.0);
     stepper3.moveTo(0);
 
+    buttonRed.setDebounceTime(50);
+    buttonBlue.setDebounceTime(50);
+    buttonGreen.setDebounceTime(50);
+    buttonYellow.setDebounceTime(50);
+
     pinMode(STP_EN, OUTPUT);
     pinMode(STP_MS1, OUTPUT);
     pinMode(STP_MS2, OUTPUT);
@@ -142,9 +191,11 @@ void setup()
     delay(100);
     digitalWrite(STP_EN, HIGH); //motors off
 
+    drawAllLeds(warmwhite);
 
     disableCore0WDT(); //I disable the core becasue i dont have the WDT reset functions working yet
     xTaskCreatePinnedToCore(motorCall, "motorTask", 1000, NULL, 1, &motorTask, 0);
+    delay(500);
 }
 
 void loop()
@@ -154,32 +205,70 @@ void loop()
     buttonBlue.loop();
     buttonYellow.loop();
 
+    if(animationRunning){
+        animations.UpdateAnimations();
+        strip.Show();
+    }
+
     if (!busy){ 
+        
         if(buttonRed.isPressed()){
-            for (uint32_t i = 0; i < LED_COUNT; i++){
-            strip.SetPixelColor(i,red); }
-            strip.Show();
+            if (!animationRunning){
+                drawAllLeds(black);
+                DrawTailPixels(0); //0.33 green, 0 for red, 0.667 for blue, 0.083 for yellow
+                animations.StartAnimation(0, 66, LoopAnimUpdate); 
+                animationRunning = true;
+            }   
+        }
+
+        if(buttonRed.isReleased()){
+            animationRunning = false;
+            drawAllLeds(red);
             update_positions(update, (double[3]){1,0,0}, HALF_ROTATION);//do X
         }
 
         if(buttonGreen.isPressed()){
-            for (uint32_t i = 0; i < LED_COUNT; i++){
-            strip.SetPixelColor(i,green);}
-            strip.Show();
+            if (!animationRunning){
+                drawAllLeds(black);
+                DrawTailPixels(0.33); //0.33 green, 0 for red, 0.667 for blue, 0.083 for yellow
+                animations.StartAnimation(0, 66, LoopAnimUpdate); 
+                animationRunning = true;
+            }   
+        }
+
+        if(buttonGreen.isReleased()){
+            animationRunning = false;
+           drawAllLeds(green);
             update_positions(update, (double[3]){0,1,0}, HALF_ROTATION);//do y
         }
 
         if(buttonBlue.isPressed()){
-            for (uint32_t i = 0; i < LED_COUNT; i++){
-            strip.SetPixelColor(i,blue);}
-            strip.Show();
-            update_positions(update, (double[3]){0,0,1}, .548*HALF_ROTATION);//do s, tuned this line for movement accuracy
+            if (!animationRunning){
+                drawAllLeds(black);
+                DrawTailPixels(0.667); //0.33 green, 0 for red, 0.667 for blue, 0.083 for yellow
+                animations.StartAnimation(0, 66, LoopAnimUpdate); 
+                animationRunning = true;
+            }   
+        }
+
+        if(buttonBlue.isReleased()){
+            animationRunning = false;
+            drawAllLeds(blue);
+            update_positions(update, (double[3]){0,0,1}, .55*HALF_ROTATION);//do s, tuned this line for movement accuracy
         }
 
         if(buttonYellow.isPressed()){
-            for (uint32_t i = 0; i < LED_COUNT; i++){
-            strip.SetPixelColor(i,yellow);}
-            strip.Show();
+            if (!animationRunning){
+                drawAllLeds(black);
+                DrawTailPixels(0.083); //0.33 green, 0 for red, 0.667 for blue, 0.083 for yellow
+                animations.StartAnimation(0, 66, LoopAnimUpdate); 
+                animationRunning = true;
+            }   
+        }
+
+        if(buttonYellow.isReleased()){
+            animationRunning = false;
+            drawAllLeds(yellow);
             update_positions(update, (double[3]){.690,0,.750}, HALF_ROTATION);//do h, tuned this line for movement accuracy
         }
     }
