@@ -5,8 +5,6 @@
 #include <ezButton.h>
 #include <NeoPixelAnimator.h>
 
-
-
 TaskHandle_t motorTask;
 
 const uint16_t TailLength = 6; // length of the tail, must be shorter than PixelCount
@@ -31,21 +29,13 @@ RgbColor warmwhite(LED_COLOR_SATURATION*0.49, LED_COLOR_SATURATION*0.47, LED_COL
 AccelStepper stepper1(AccelStepper::DRIVER, STPA_STEP, STPA_DIR);
 AccelStepper stepper2(AccelStepper::DRIVER, STPB_STEP, STPB_DIR);
 AccelStepper stepper3(AccelStepper::DRIVER, STPC_STEP, STPC_DIR);
-/*
-//coeffs for 35 degrees
-const double coeffs[3][3] = {                          //reverse engineering Tjeerd
-    {0.81915204,  -0.,         0.57357644},            //cos(35),0,sin(35)
-    {-0.40957602, -0.70940648, 0.57357644},            //-cos(35)/2,-(sqrt(3)/2)*cos(35),sin(35)
-    {-0.40957602,  0.70940648, 0.57357644}             //-cos(35)/2,(sqrt(3)/2)*cos(35),sin(35)
-};*/
 
 //coeffs for 28.5 degrees
-const double coeffs[3][3] = {
-    {0.87881711, 0.00000000, 0.47715876},
-    {-0.43940856, -0.76107794, 0.47715876},
-    {-0.43940856, 0.76107794, 0.47715876}
+const double coeffs[3][3] = {                   //reverse engineering Tjeerd
+    {0.87881711, 0.00000000, 0.47715876},       //cos(35),0,sin(35)
+    {-0.43940856, -0.76107794, 0.47715876},     //-cos(35)/2,-(sqrt(3)/2)*cos(35),sin(35)
+    {-0.43940856, 0.76107794, 0.47715876}       //-cos(35)/2,(sqrt(3)/2)*cos(35),sin(35)
 };
-
 
 double pos[3] {0.};
 //const double HALF_ROTATION(9450 / coeffs[2][1]); //for 250mm ball
@@ -152,7 +142,6 @@ void motorCall(void * parameter)
     }
 }
 
-
 void setup()
 {
     Serial.begin(115200);
@@ -210,8 +199,7 @@ void loop()
         strip.Show();
     }
 
-    if (!busy){ 
-        
+    if (!busy){  
         if(buttonRed.isPressed()){
             if (!animationRunning){
                 drawAllLeds(black);
@@ -238,7 +226,7 @@ void loop()
 
         if(buttonGreen.isReleased()){
             animationRunning = false;
-           drawAllLeds(green);
+            drawAllLeds(green);
             update_positions(update, (double[3]){0,1,0}, HALF_ROTATION);//do y
         }
 
