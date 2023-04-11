@@ -1,0 +1,26 @@
+typedef enum {
+    STATE_RESET,
+    STATE_IDLE,
+    STATE_MOVE_START,
+    STATE_MOVING,
+    STATE_MOVE_END,
+} motorstate_t;
+motorstate_t motorState = STATE_RESET;
+
+    switch(motorState)
+    {
+        case STATE_RESET:
+            motorState = STATE_IDLE;
+            break;
+        case STATE_IDLE:
+            processButtons(); // will set ready = true if position update needed
+            processLeds();
+            break;
+        case STATE_MOVE_START:
+            
+            break;
+        case STATE_MOVING:
+            break;
+        case STATE_MOVE_END:
+            break;
+    };

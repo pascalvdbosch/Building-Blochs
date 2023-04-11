@@ -5,20 +5,12 @@
 #include <ezButton.h>
 #include <NeoPixelAnimator.h>
 
-
-
-TaskHandle_t motorTask;
-
+// LEDS
 const uint16_t TailLength = 6; // length of the tail, must be shorter than PixelCount
 const float MaxLightness = 0.5f; // max lightness at the head of the tail (0.5f is full bright)
 NeoPixelBus<NeoGrbFeature, Neo800KbpsMethod> strip(LED_COUNT, LED_PIN);
 NeoGamma<NeoGammaTableMethod> colorGamma;
 NeoPixelAnimator animations(1); // NeoPixel animation management object
-
-ezButton buttonRed(BUT_RED);
-ezButton buttonGreen(BUT_GREEN);
-ezButton buttonBlue(BUT_BLUE);
-ezButton buttonYellow(BUT_YELLOW);
 
 RgbColor red(LED_COLOR_SATURATION, 0, 0);
 RgbColor green(0, LED_COLOR_SATURATION, 0);
@@ -28,9 +20,25 @@ RgbColor yellow(LED_COLOR_SATURATION*1.5,LED_COLOR_SATURATION/3,0);
 RgbColor black(0);
 RgbColor warmwhite(LED_COLOR_SATURATION*0.49, LED_COLOR_SATURATION*0.47, LED_COLOR_SATURATION*0.4);
 
+// BUTTONS
+ezButton buttonRed(BUT_RED);
+ezButton buttonGreen(BUT_GREEN);
+ezButton buttonBlue(BUT_BLUE);
+ezButton buttonYellow(BUT_YELLOW);
+
+// Motors
 AccelStepper stepper1(AccelStepper::DRIVER, STPA_STEP, STPA_DIR);
 AccelStepper stepper2(AccelStepper::DRIVER, STPB_STEP, STPB_DIR);
 AccelStepper stepper3(AccelStepper::DRIVER, STPC_STEP, STPC_DIR);
+
+// Functions
+void processLeds();
+void processButtons();
+void processMotors();
+void LoopAnimUpdate(const AnimationParam& param);
+void drawAllLeds(RgbColor colorToDraw);
+void DrawTailPixels(float hue);
+
 /*
 //coeffs for 35 degrees
 const double coeffs[3][3] = {                          //reverse engineering Tjeerd
@@ -71,14 +79,14 @@ void LoopAnimUpdate(const AnimationParam& param)
         // rotate the complete strip one pixel to the right on every update
         strip.RotateRight(1);
     }
-}
+};
 
 void drawAllLeds(RgbColor colorToDraw){
     for (uint32_t i = 0; i < LED_COUNT; i++){
                 strip.SetPixelColor(i,colorToDraw); 
     }
     strip.Show();
-}
+};
 
 void DrawTailPixels(float hue)
 {
@@ -91,7 +99,7 @@ void DrawTailPixels(float hue)
 
         strip.SetPixelColor(index, colorGamma.Correct(color));
     }
-}
+};
 
 void update_positions(double (&update)[3], const double (&u)[3], const double theta)
 {
@@ -99,59 +107,7 @@ void update_positions(double (&update)[3], const double (&u)[3], const double th
     update[1] = (coeffs[1][0] * u[0] + coeffs[1][1] * u[1] + coeffs[1][2] * u[2]) * theta;
     update[2] = (coeffs[2][0] * u[0] + coeffs[2][1] * u[1] + coeffs[2][2] * u[2]) * theta;
     ready = true;
-}
-
-void motorCall(void * parameter)
-{
-    for(;;){
-        if (stepper1.distanceToGo() == 0 && stepper2.distanceToGo() == 0 && stepper3.distanceToGo() == 0)
-        {
-            double max_update = max(max(abs(update[0]), abs(update[1])), abs(update[2]));
-            if (busy)
-            {
-                drawAllLeds(warmwhite);
-                digitalWrite(STP_EN, HIGH); //motors off
-                busy = false;
-                write_done = true;
-            }
-            if (ready)
-            {
-                busy = true;
-                digitalWrite(STP_EN, LOW);//motors on
-                delay(30);
-
-                pos[0] += update[0];
-                pos[1] += update[1];
-                pos[2] += update[2];
-
-                ready = false;
-                
-                stepper1.setAcceleration(update[2] / max_update * ACCELERATION);
-                stepper2.setAcceleration(update[1] / max_update * ACCELERATION);
-                stepper3.setAcceleration(update[0] / max_update * ACCELERATION);
-
-                stepper1.setMaxSpeed(update[2] / max_update * MAX_SPEED);
-                stepper2.setMaxSpeed(update[1] / max_update * MAX_SPEED);
-                stepper3.setMaxSpeed(update[0] / max_update * MAX_SPEED);
-
-                stepper1.moveTo(pos[2]);
-                stepper2.moveTo(pos[1]);
-                stepper3.moveTo(pos[0]);
-
-                update[0] = 0;
-                update[1] = 0;
-                update[2] = 0;
-            }
-        }
-        else
-        {
-            stepper1.run();
-            stepper2.run();
-            stepper3.run();
-        }
-    }
-}
-
+};
 
 void setup()
 {
@@ -192,84 +148,145 @@ void setup()
     digitalWrite(STP_EN, HIGH); //motors off
 
     drawAllLeds(warmwhite);
-
-    disableCore0WDT(); //I disable the core becasue i dont have the WDT reset functions working yet
-    xTaskCreatePinnedToCore(motorCall, "motorTask", 1000, NULL, 1, &motorTask, 0);
-    delay(500);
-}
+};
 
 void loop()
+{
+    processMotors();
+    processButtons(); // will set ready = true if position update needed
+    processLeds();
+};
+
+void processMotors()
+{
+    if (stepper1.distanceToGo() || stepper2.distanceToGo() || stepper3.distanceToGo())
+    {
+        stepper1.run();
+        stepper2.run();
+        stepper3.run();
+
+        return;
+    };
+
+    if (busy)
+    {
+        drawAllLeds(warmwhite);
+        digitalWrite(STP_EN, HIGH); //motors off
+        busy = false;
+        write_done = true;
+    };
+
+    if (ready)
+    {
+        busy = true;
+        digitalWrite(STP_EN, LOW);//motors on
+        delay(30);
+
+        pos[0] += update[0];
+        pos[1] += update[1];
+        pos[2] += update[2];
+
+        ready = false;
+        
+        double max_update = max(max(abs(update[0]), abs(update[1])), abs(update[2]));
+        stepper1.setAcceleration(update[2] / max_update * ACCELERATION);
+        stepper2.setAcceleration(update[1] / max_update * ACCELERATION);
+        stepper3.setAcceleration(update[0] / max_update * ACCELERATION);
+
+        stepper1.setMaxSpeed(update[2] / max_update * MAX_SPEED);
+        stepper2.setMaxSpeed(update[1] / max_update * MAX_SPEED);
+        stepper3.setMaxSpeed(update[0] / max_update * MAX_SPEED);
+
+        stepper1.moveTo(pos[2]);
+        stepper2.moveTo(pos[1]);
+        stepper3.moveTo(pos[0]);
+
+        update[0] = 0;
+        update[1] = 0;
+        update[2] = 0;
+    };
+};
+
+void processLeds()
+{
+    if(busy)
+        return;
+
+    if(animationRunning)
+    {
+        animations.UpdateAnimations();
+        strip.Show();
+    };
+};
+
+void processButtons()
 {
     buttonRed.loop();
     buttonGreen.loop();
     buttonBlue.loop();
     buttonYellow.loop();
 
-    if(animationRunning){
-        animations.UpdateAnimations();
-        strip.Show();
+    if(busy)
+        return;
+
+    if(buttonRed.isPressed()){
+        if (!animationRunning){
+            drawAllLeds(black);
+            DrawTailPixels(0); //0.33 green, 0 for red, 0.667 for blue, 0.083 for yellow
+            animations.StartAnimation(0, 66, LoopAnimUpdate); 
+            animationRunning = true;
+        }   
     }
 
-    if (!busy){ 
-        
-        if(buttonRed.isPressed()){
-            if (!animationRunning){
-                drawAllLeds(black);
-                DrawTailPixels(0); //0.33 green, 0 for red, 0.667 for blue, 0.083 for yellow
-                animations.StartAnimation(0, 66, LoopAnimUpdate); 
-                animationRunning = true;
-            }   
-        }
-
-        if(buttonRed.isReleased()){
-            animationRunning = false;
-            drawAllLeds(red);
-            update_positions(update, (double[3]){1,0,0}, HALF_ROTATION);//do X
-        }
-
-        if(buttonGreen.isPressed()){
-            if (!animationRunning){
-                drawAllLeds(black);
-                DrawTailPixels(0.33); //0.33 green, 0 for red, 0.667 for blue, 0.083 for yellow
-                animations.StartAnimation(0, 66, LoopAnimUpdate); 
-                animationRunning = true;
-            }   
-        }
-
-        if(buttonGreen.isReleased()){
-            animationRunning = false;
-           drawAllLeds(green);
-            update_positions(update, (double[3]){0,1,0}, HALF_ROTATION);//do y
-        }
-
-        if(buttonBlue.isPressed()){
-            if (!animationRunning){
-                drawAllLeds(black);
-                DrawTailPixels(0.667); //0.33 green, 0 for red, 0.667 for blue, 0.083 for yellow
-                animations.StartAnimation(0, 66, LoopAnimUpdate); 
-                animationRunning = true;
-            }   
-        }
-
-        if(buttonBlue.isReleased()){
-            animationRunning = false;
-            drawAllLeds(blue);
-            update_positions(update, (double[3]){0,0,1}, .55*HALF_ROTATION);//do s, tuned this line for movement accuracy
-        }
-
-        if(buttonYellow.isPressed()){
-            if (!animationRunning){
-                drawAllLeds(black);
-                DrawTailPixels(0.083); //0.33 green, 0 for red, 0.667 for blue, 0.083 for yellow
-                animations.StartAnimation(0, 66, LoopAnimUpdate); 
-                animationRunning = true;
-            }   
-        }
-
-        if(buttonYellow.isReleased()){
-            animationRunning = false;
-            drawAllLeds(yellow);
-            update_positions(update, (double[3]){.690,0,.750}, HALF_ROTATION);//do h, tuned this line for movement accuracy
-        }
+    if(buttonRed.isReleased()){
+        animationRunning = false;
+        drawAllLeds(red);
+        update_positions(update, (double[3]){1,0,0}, HALF_ROTATION);//do X
     }
-}
+
+    if(buttonGreen.isPressed()){
+        if (!animationRunning){
+            drawAllLeds(black);
+            DrawTailPixels(0.33); //0.33 green, 0 for red, 0.667 for blue, 0.083 for yellow
+            animations.StartAnimation(0, 66, LoopAnimUpdate); 
+            animationRunning = true;
+        }   
+    }
+
+    if(buttonGreen.isReleased()){
+        animationRunning = false;
+        drawAllLeds(green);
+        update_positions(update, (double[3]){0,1,0}, HALF_ROTATION);//do y
+    }
+
+    if(buttonBlue.isPressed()){
+        if (!animationRunning){
+            drawAllLeds(black);
+            DrawTailPixels(0.667); //0.33 green, 0 for red, 0.667 for blue, 0.083 for yellow
+            animations.StartAnimation(0, 66, LoopAnimUpdate); 
+            animationRunning = true;
+        }   
+    }
+
+    if(buttonBlue.isReleased()){
+        animationRunning = false;
+        drawAllLeds(blue);
+        update_positions(update, (double[3]){0,0,1}, .55*HALF_ROTATION);//do s, tuned this line for movement accuracy
+    }
+
+    if(buttonYellow.isPressed()){
+        if (!animationRunning){
+            drawAllLeds(black);
+            DrawTailPixels(0.083); //0.33 green, 0 for red, 0.667 for blue, 0.083 for yellow
+            animations.StartAnimation(0, 66, LoopAnimUpdate); 
+            animationRunning = true;
+        }   
+    }
+
+    if(buttonYellow.isReleased()){
+        animationRunning = false;
+        drawAllLeds(yellow);
+        update_positions(update, (double[3]){.690,0,.750}, HALF_ROTATION);//do h, tuned this line for movement accuracy
+    }
+};
+
