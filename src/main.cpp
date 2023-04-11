@@ -48,16 +48,25 @@ const double coeffs[3][3] = {                          //reverse engineering Tje
 };*/
 
 //coeffs for 28.5 degrees
+// const double coeffs[3][3] = {
+//     {0.87881711, 0.00000000, 0.47715876},
+//     {-0.43940856, -0.76107794, 0.47715876},
+//     {-0.43940856, 0.76107794, 0.47715876}
+// };
+
+// Generated with block.js with angle = 28.5 and z_rot = PI/6
 const double coeffs[3][3] = {
-    {0.87881711, 0.00000000, 0.47715876},
-    {-0.43940856, -0.76107794, 0.47715876},
-    {-0.43940856, 0.76107794, 0.47715876}
+    {0.76107794, -0.43940856, 0.47715876},
+    {-0.76107794, -0.43940856, 0.47715876},
+    {-0.00000000, 0.87881711, 0.47715876}
 };
 
 
 double pos[3] {0.};
-//const double HALF_ROTATION(9450 / coeffs[2][1]); //for 250mm ball
-const double HALF_ROTATION(2990 / coeffs[2][1]); //for 149mm ball
+const double HALF_ROTATION_X(4050); //RED, for 149mm balL
+const double HALF_ROTATION_Y(3945); //GREEN, for 149mm ball
+const double HALF_ROTATION_Z(4275); //BLUE=0.5z, for 149mm ball
+const double HALF_ROTATION_H(4130); //for 149mm ball
 const double MAX_SPEED(20000.0);
 const double ACCELERATION(5000.0);
 int iteration = 0;
@@ -241,7 +250,7 @@ void processButtons()
     if(buttonRed.isReleased()){
         animationRunning = false;
         drawAllLeds(red);
-        update_positions(update, (double[3]){1,0,0}, HALF_ROTATION);//do X
+        update_positions(update, (double[3]){1,0,0}, HALF_ROTATION_X);//do X
     }
 
     if(buttonGreen.isPressed()){
@@ -256,7 +265,7 @@ void processButtons()
     if(buttonGreen.isReleased()){
         animationRunning = false;
         drawAllLeds(green);
-        update_positions(update, (double[3]){0,1,0}, HALF_ROTATION);//do y
+        update_positions(update, (double[3]){0,1,0}, HALF_ROTATION_Y);//do y
     }
 
     if(buttonBlue.isPressed()){
@@ -271,7 +280,7 @@ void processButtons()
     if(buttonBlue.isReleased()){
         animationRunning = false;
         drawAllLeds(blue);
-        update_positions(update, (double[3]){0,0,1}, .55*HALF_ROTATION);//do s, tuned this line for movement accuracy
+        update_positions(update, (double[3]){0,0,1}, .5*HALF_ROTATION_Z);//do s, tuned this line for movement accuracy
     }
 
     if(buttonYellow.isPressed()){
@@ -286,7 +295,7 @@ void processButtons()
     if(buttonYellow.isReleased()){
         animationRunning = false;
         drawAllLeds(yellow);
-        update_positions(update, (double[3]){.690,0,.750}, HALF_ROTATION);//do h, tuned this line for movement accuracy
+        update_positions(update, (double[3]){.707,0,.707}, HALF_ROTATION_H);//do h, tuned this line for movement accuracy
     }
 };
 
