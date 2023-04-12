@@ -1,7 +1,12 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
-#define VERSIONSTR "20230404a"
+#define VERSIONSTR "20230412"
+
+#define HUE_RED     0
+#define HUE_GREEN   0.33
+#define HUE_BLUE    0.667
+#define HUE_YELLOW  0.083
 
 #define STPA_DIR 26
 #define STPA_STEP 25
