@@ -26,7 +26,7 @@ RgbColor red(LED_COLOR_SATURATION, 0, 0);
 RgbColor green(0, LED_COLOR_SATURATION, 0);
 RgbColor blue(0, 0, LED_COLOR_SATURATION);
 RgbColor white(LED_COLOR_SATURATION);
-RgbColor yellow(LED_COLOR_SATURATION,LED_COLOR_SATURATION/2,0);
+RgbColor yellow(LED_COLOR_SATURATION, LED_COLOR_SATURATION/2,0);
 RgbColor black(0);
 RgbColor warmwhite(LED_COLOR_SATURATION*0.49, LED_COLOR_SATURATION*0.47, LED_COLOR_SATURATION*0.4);
 
@@ -45,18 +45,9 @@ void DrawTailPixels(float hue);
 
 // MOVEMENT
 Matrix3d MotorMapping; // initialized in setup()
-double pos[3] {0, 0, 0};
-const double HALF_ROTATION_X(4050); //RED, for 149mm balL
-const double HALF_ROTATION_Y(3945); //GREEN, for 149mm ball
-const double HALF_ROTATION_Z(4275); //BLUE=0.5z, for 149mm ball
-const double HALF_ROTATION_H(4130); //for 149mm ball
-const double MAX_SPEED(20000.0);
-const double ACCELERATION(5000.0);
-int iteration = 0;
+Vector3d update;
 bool busy = false;
 bool ready = false;
-bool write_done = false;
-Vector3d update;
 
 void LoopAnimUpdate(const AnimationParam& param)
 {
@@ -105,23 +96,23 @@ void setup()
     strip.Begin();
     strip.Show();
 
-    stepper1.setMaxSpeed(20000.0);
-    stepper1.setAcceleration(5000.0);
+    stepper1.setMaxSpeed(MAX_SPEED);
+    stepper1.setAcceleration(MAX_ACCELERATION);
     stepper1.moveTo(0);
 
-    stepper2.setMaxSpeed(20000.0);
-    stepper2.setAcceleration(5000.0);
+    stepper2.setMaxSpeed(MAX_SPEED);
+    stepper2.setAcceleration(MAX_ACCELERATION);
     stepper2.moveTo(0);
 
-    stepper3.setMaxSpeed(20000.0);
-    stepper3.setAcceleration(5000.0);
+    stepper3.setMaxSpeed(MAX_SPEED);
+    stepper3.setAcceleration(MAX_ACCELERATION);
     stepper3.moveTo(0);
 
     pinMode(BUT_RED, INPUT_PULLUP);
     pinMode(BUT_GREEN, INPUT_PULLUP);
     pinMode(BUT_BLUE, INPUT_PULLUP);
     pinMode(BUT_YELLOW, INPUT_PULLUP);
-    
+
     pinMode(STP_EN, OUTPUT);
     pinMode(STP_MS1, OUTPUT);
     pinMode(STP_MS2, OUTPUT);
@@ -137,7 +128,7 @@ void setup()
     digitalWrite(STP_EN, HIGH); //motors off
 
     // Generate Movement Matrix
-    MotorMapping = generateMotorMatrix(28.5, 30);
+    MotorMapping = generateMotorMatrix(MOTOR_ANGLE_DEG, BASE_Z_ROTATION_DEG);
     printMatrix3d(MotorMapping, "MotorMapping");
 
     drawAllLeds(warmwhite);
@@ -152,6 +143,8 @@ void loop()
 
 void processMotors()
 {
+    static Vector3d position(0,0,0);
+
     if (stepper1.distanceToGo() || stepper2.distanceToGo() || stepper3.distanceToGo())
     {
         stepper1.run();
@@ -166,7 +159,6 @@ void processMotors()
         drawAllLeds(warmwhite);
         digitalWrite(STP_EN, HIGH); //motors off
         busy = false;
-        write_done = true;
     };
 
     if (ready)
@@ -175,14 +167,14 @@ void processMotors()
         digitalWrite(STP_EN, LOW);//motors on
         delay(30);
 
-        pos[0] += update[0];
-        pos[1] += update[1];
-        pos[2] += update[2];
+        position += update;
         
         double max_update = max(max(abs(update[0]), abs(update[1])), abs(update[2]));
-        stepper1.setAcceleration(update[2] / max_update * ACCELERATION);
-        stepper2.setAcceleration(update[1] / max_update * ACCELERATION);
-        stepper3.setAcceleration(update[0] / max_update * ACCELERATION);
+        //FIXME: instead of max() use the norm of the vector here and for speed
+        //  or maybe the inner product of the update for the axis
+        stepper1.setAcceleration(update[2] / max_update * MAX_ACCELERATION);
+        stepper2.setAcceleration(update[1] / max_update * MAX_ACCELERATION);
+        stepper3.setAcceleration(update[0] / max_update * MAX_ACCELERATION);
 
         stepper1.setMaxSpeed(update[2] / max_update * MAX_SPEED);
         stepper2.setMaxSpeed(update[1] / max_update * MAX_SPEED);
@@ -191,13 +183,9 @@ void processMotors()
         // done with update
         ready = false;
 
-        stepper1.moveTo(pos[2]);
-        stepper2.moveTo(pos[1]);
-        stepper3.moveTo(pos[0]);
-
-        update[0] = 0;
-        update[1] = 0;
-        update[2] = 0;
+        stepper1.moveTo(position[2]);
+        stepper2.moveTo(position[1]);
+        stepper3.moveTo(position[0]);
     };
 };
 
@@ -221,11 +209,6 @@ void processButtons()
 
     // read keys and convert to event
     keypress_t key = static_cast<keypress_t>(key2event(scan_keys()));
-
-    const Vector3d VECTOR_X(1,0,0);
-    const Vector3d VECTOR_Y(0,1,0);
-    const Vector3d VECTOR_Z(0,0,1);
-    const Vector3d VECTOR_H(sqrt(2)/2, 0, sqrt(2)/2);
 
     switch(key)
     {
