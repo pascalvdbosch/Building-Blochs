@@ -3,8 +3,54 @@
 
 #include <Arduino.h>
 #include <ArduinoEigenDense.h>
+#include <AccelStepper.h>
+#include <Module_Stepmotor.h>
+#include <queue>
 
-Eigen::Matrix3d generateMotorMatrix(double wheel_angle_degrees, double z_rotation_degrees);
-void printMatrix3d(Eigen::Matrix3d& m, const char* name = "M");
+using namespace Eigen;
+
+#define AXIS_X                {1, 0, 0}
+#define AXIS_Y                {0, 1, 0}
+#define AXIS_Z                {0, 0, 1}
+// #define VECTOR_H              {0.707106, 0, 0.707106} // sqrt(2)/2
+
+typedef std::queue<Vector3d> MovementQueue_t;
+
+
+class BlochSphere
+{
+	public:
+
+		BlochSphere();
+		~BlochSphere();
+
+		bool begin();
+		void loop();
+
+		// FIXME: rotate(axis, degrees) pls
+		bool rotate(const Vector3d axis, const float angle_steps);
+		// const Vector3d& position() { return _position; };
+
+	private:
+		typedef enum{
+			RESET,
+			IDLE,
+			MOVE_START,
+			MOVE_BUSY,
+			MOVE_END,
+		} state_t;
+		state_t _state = RESET;
+		MovementQueue_t _queue;
+
+		Module_Stepmotor _driver;
+		AccelStepper _motor1;
+		AccelStepper _motor2;
+		AccelStepper _motor3;
+		Matrix3d _motormatrix;
+
+		// Vector3d _position;
+
+};
+
 
 #endif // __BLOCH_H

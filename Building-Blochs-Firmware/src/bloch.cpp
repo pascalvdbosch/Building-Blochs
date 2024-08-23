@@ -1,27 +1,140 @@
-#include <stdlib.h>
-#include <Arduino.h>
-#include <ArduinoEigenDense.h>
-
 #include "bloch.h"
 
+#include <stdlib.h>
+
+#include "config.h"
+#include "log.h"
+
+// local functions
 using namespace Eigen;
+Eigen::Matrix3d generateMotorMatrix(double wheel_angle_degrees, double z_rotation_degrees);
+void            printMatrix3d(Eigen::Matrix3d& m, const char* name = "M");
 
 
-// Previous matrices:
-// Generated with angle = 35 degress, no z_rot
-// Matrix3d MotorMapping = {0.81915204,  -0.,         0.57357644,            //cos(35),0,sin(35)
-//                          -0.40957602, -0.70940648, 0.57357644,            //-cos(35)/2,-(sqrt(3)/2)*cos(35),sin(35)
-//                          -0.40957602,  0.70940648, 0.57357644};             //-cos(35)/2,(sqrt(3)/2)*cos(35),sin(35)
+#define MOTORS_ON               _driver.enableMotor(1)
+#define MOTORS_OFF              _driver.enableMotor(0)
 
-// Generated with angle = 28.5 degrees, no z_rot
-// Matrix3d MotorMapping = {0.87881711, 0.00000000, 0.47715876,
-//                          -0.43940856, -0.76107794, 0.47715876,
-//                          -0.43940856, 0.76107794, 0.47715876};
+BlochSphere::BlochSphere() : 
+    _motor1(AccelStepper::DRIVER, PIN_MX_STEP, PIN_MX_DIR),
+    _motor2(AccelStepper::DRIVER, PIN_MY_STEP, PIN_MY_DIR),
+    _motor3(AccelStepper::DRIVER, PIN_MZ_STEP, PIN_MZ_DIR)
+{
+};
 
-// Generated with block.js with angle = 28.5 and z_rot = PI/6
-// MotorMapping << 0.76107794, -0.43940856, 0.47715876,
-//             -0.76107794, -0.43940856, 0.47715876,
-//             -0.00000000, 0.87881711, 0.47715876;
+BlochSphere::~BlochSphere()
+{
+
+};
+
+bool BlochSphere::begin()
+{
+    _driver.init(Wire);
+    _driver.setMicrostepResolution(Module_Stepmotor::kMicrosteps8);
+
+    MOTORS_ON;
+    delay(100);
+    MOTORS_OFF;
+
+    // Generate Movement Matrix
+    _motormatrix = generateMotorMatrix(MOTOR_ANGLE_DEG, BASE_Z_ROTATION_DEG);
+    printMatrix3d(_motormatrix, "MotorMatrix");
+
+    _state = RESET;
+
+    return true;
+};
+
+bool BlochSphere::rotate(const Vector3d axis, const float angle)
+{
+    DBG("Queue move");
+    _queue.push(_motormatrix * axis * angle);
+    return true;
+};
+
+
+void BlochSphere::loop()
+{
+    Vector3d move;
+    float max_update;
+
+    while(1) switch(_state)
+    {
+        case RESET:
+            _state = IDLE;
+            break;
+
+        case IDLE:
+            if(_queue.size() > 0)
+            {
+                _state = MOVE_START;
+                continue;
+            };
+
+        case MOVE_START:
+            // Test for next move or go IDLE
+            if(_queue.size() < 1)
+            {
+                _state = IDLE;
+                continue;
+            };
+
+            // pop move from queue
+            move = _queue.front();
+            _queue.pop();
+
+            // Start executing move
+            MOTORS_ON;
+            delay(30);
+
+            //FIXME: instead of max() use the norm of the vector here and for speed
+            //  or maybe the inner product of the update for the axis
+
+            max_update = max(max(abs(move[0]), abs(move[1])), abs(move[2]));
+
+            _motor1.setAcceleration(move[2] / max_update * MOTORS_MAX_ACCEL);
+            _motor2.setAcceleration(move[1] / max_update * MOTORS_MAX_ACCEL);
+            _motor3.setAcceleration(move[0] / max_update * MOTORS_MAX_ACCEL);
+
+            _motor1.setMaxSpeed(move[2] / max_update * MOTORS_MAX_SPEED);
+            _motor2.setMaxSpeed(move[1] / max_update * MOTORS_MAX_SPEED);
+            _motor3.setMaxSpeed(move[0] / max_update * MOTORS_MAX_SPEED);
+
+            _motor1.moveTo(move[2]);
+            _motor2.moveTo(move[1]);
+            _motor3.moveTo(move[0]);
+            break;
+
+        case MOVE_BUSY:
+            // Wait until all motors have finished
+            _motor1.run();
+            _motor2.run();
+            _motor3.run();
+
+            if(_motor1.distanceToGo())
+                break;
+            if(_motor2.distanceToGo())
+                break;
+            if(_motor3.distanceToGo())
+                break;
+            
+            _state = MOVE_END;
+            break;
+        
+        case MOVE_END:
+            // Update our total position after move has finished
+            // FIXME: This only counts steps per motor in total
+            // _position += move;
+
+            MOTORS_OFF;
+
+            // Start next or go idle
+            if(_queue.size() > 0)
+                _state = MOVE_START;
+            else
+                _state = IDLE;
+            break;
+    }; // while switch
+};
 
 Matrix3d generateMotorMatrix(double /*mount_angle*/ wa_deg, double z_rot_deg)
 {
