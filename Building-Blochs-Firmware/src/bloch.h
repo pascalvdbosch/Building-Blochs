@@ -16,7 +16,6 @@ using namespace Eigen;
 
 typedef std::queue<Vector3d> MovementQueue_t;
 
-
 class BlochSphere
 {
 	public:
@@ -48,9 +47,6 @@ class BlochSphere
 		AccelStepper _motor2;
 		AccelStepper _motor3;
 		Matrix3d _motormatrix;
-
-		// Vector3d _position;
-
 };
 
 

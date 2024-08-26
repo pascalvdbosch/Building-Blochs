@@ -9,13 +9,20 @@
 
 BlochSphere bloch;
 
-
-// MOVEMENT
 using namespace Eigen;
-Matrix3d MotorMapping; // initialized in setup()
-Vector3d update;
 
 void setup()
+{    
+    Serial.begin(460800);
+    Serial0.begin(460800);
+    // Serial1.begin(115200);
+    // Serial2.begin(115200);
+    // USBSerial.begin(115200);
+    Serial.printf("Serial\n");
+    Serial.printf("Serial0\n");
+    // Serial1.printf("Serial1");
+    // Serial1.printf("Serial2");
+    // USBSerial.printf("USBSerial");
 
     Wire.begin(M5_STEPMOTORDRIVER_SDA, M5_STEPMOTORDRIVER_SCL, 400000);
 
@@ -28,12 +35,15 @@ void loop()
 {
     bloch.loop();
 
-    static bool once = true;
-    if(once && millis() > 1000)
+    time_t now = millis();
+    static time_t last = 0;
+    if(now - last > 5000)
     {
         DBG("queue 0.5 * Z");
+        bloch.rotate(Vector3d(1, 0, 0), STEPS_PER_ROTATION_Z * 0.5);
+        bloch.rotate(Vector3d(0, 1, 0), STEPS_PER_ROTATION_Z * 0.5);
         bloch.rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION_Z * 0.5);
-        once = false;
+        last = now;
     };
 };
 

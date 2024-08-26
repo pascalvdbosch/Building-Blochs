@@ -11,9 +11,6 @@ Eigen::Matrix3d generateMotorMatrix(double wheel_angle_degrees, double z_rotatio
 void            printMatrix3d(Eigen::Matrix3d& m, const char* name = "M");
 
 
-#define MOTORS_ON               _driver.enableMotor(1)
-#define MOTORS_OFF              _driver.enableMotor(0)
-
 BlochSphere::BlochSphere() : 
     _motor1(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_X, M5_STEPMOTORDRIVER_DIR_X),
     _motor2(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_Y, M5_STEPMOTORDRIVER_DIR_Y),
@@ -28,12 +25,20 @@ BlochSphere::~BlochSphere()
 
 bool BlochSphere::begin()
 {
-    _driver.init(Wire);
-    _driver.setMicrostepResolution(Module_Stepmotor::kMicrosteps8);
+    if(!_driver.init())
+    {
+        WARNING("_driver return false. error?");
+    };
 
-    MOTORS_ON;
-    delay(100);
-    MOTORS_OFF;
+    // Reset Fault status
+    // _driver.setMicrostepResolution(Module_Stepmotor::kMicrosteps8);
+    _motor1.enableOutputs();
+    _motor2.enableOutputs();
+    _motor3.enableOutputs();
+
+    uint8_t status;
+    _driver.getFaultStatus(&status); 
+    DBG("FaultStatus: 0x%0x", status); // probably 7, ok?
 
     // Generate Movement Matrix
     _motormatrix = generateMotorMatrix(MOTOR_ANGLE_DEG, BASE_Z_ROTATION_DEG);
@@ -51,11 +56,10 @@ bool BlochSphere::rotate(const Vector3d axis, const float angle)
     return true;
 };
 
-
 void BlochSphere::loop()
 {
     Vector3d move;
-    float max_update;
+    float max_move;
 
     static state_t _prvstate = RESET;
     if(_state != _prvstate)
@@ -67,6 +71,11 @@ void BlochSphere::loop()
     switch(_state)
     {
         case RESET:
+            _driver.enableMotor(0);
+            _driver.resetMotor(0, 0);    
+            _driver.resetMotor(1, 0);    
+            _driver.resetMotor(2, 0);
+
             _state = IDLE;
             break;
 
@@ -74,15 +83,16 @@ void BlochSphere::loop()
             if(_queue.size() > 0)
             {
                 _state = MOVE_START;
-                continue;
+                break;
             };
+            return;
 
         case MOVE_START:
             // Test for next move or go IDLE
             if(_queue.size() < 1)
             {
                 _state = IDLE;
-                continue;
+                break;
             };
 
             // pop move from queue
@@ -90,25 +100,37 @@ void BlochSphere::loop()
             _queue.pop();
 
             // Start executing move
-            MOTORS_ON;
-            delay(30);
+            _driver.enableMotor(1);
+            // delay(30);
 
             //FIXME: instead of max() use the norm of the vector here and for speed
             //  or maybe the inner product of the update for the axis
+            max_move = max(max(abs(move[0]), abs(move[1])), abs(move[2]));
 
-            max_update = max(max(abs(move[0]), abs(move[1])), abs(move[2]));
+            _motor1.setAcceleration(move[2] / max_move * MOTORS_MAX_ACCEL);
+            _motor2.setAcceleration(move[1] / max_move * MOTORS_MAX_ACCEL);
+            _motor3.setAcceleration(move[0] / max_move * MOTORS_MAX_ACCEL);
+            // DBG("ACCEL: %f %f %f",
+            //     move[2] / max_move * MOTORS_MAX_ACCEL,
+            //     move[1] / max_move * MOTORS_MAX_ACCEL,
+            //     move[0] / max_move * MOTORS_MAX_ACCEL
+            // );
 
-            _motor1.setAcceleration(move[2] / max_update * MOTORS_MAX_ACCEL);
-            _motor2.setAcceleration(move[1] / max_update * MOTORS_MAX_ACCEL);
-            _motor3.setAcceleration(move[0] / max_update * MOTORS_MAX_ACCEL);
+            _motor1.setMaxSpeed(move[2] / max_move * MOTORS_MAX_SPEED);
+            _motor2.setMaxSpeed(move[1] / max_move * MOTORS_MAX_SPEED);
+            _motor3.setMaxSpeed(move[0] / max_move * MOTORS_MAX_SPEED);
+            // DBG("SPEED: %f %f %f",
+            //     move[2] / max_move * MOTORS_MAX_SPEED,
+            //     move[1] / max_move * MOTORS_MAX_SPEED,
+            //     move[0] / max_move * MOTORS_MAX_SPEED
+            // );
 
-            _motor1.setMaxSpeed(move[2] / max_update * MOTORS_MAX_SPEED);
-            _motor2.setMaxSpeed(move[1] / max_update * MOTORS_MAX_SPEED);
-            _motor3.setMaxSpeed(move[0] / max_update * MOTORS_MAX_SPEED);
+            DBG("%lu: Move (%.0f, %.0f, %.0f) (max=%.0f)", millis(), move[0], move[1], move[2], max_move);
+            _motor1.move(move[2]);
+            _motor2.move(move[1]);
+            _motor3.move(move[0]);
 
-            _motor1.moveTo(move[2]);
-            _motor2.moveTo(move[1]);
-            _motor3.moveTo(move[0]);
+            _state = MOVE_BUSY;
             break;
 
         case MOVE_BUSY:
@@ -128,11 +150,7 @@ void BlochSphere::loop()
             break;
         
         case MOVE_END:
-            // Update our total position after move has finished
-            // FIXME: This only counts steps per motor in total
-            // _position += move;
-
-            MOTORS_OFF;
+            _driver.enableMotor(0);
 
             // Start next or go idle
             if(_queue.size() > 0)
