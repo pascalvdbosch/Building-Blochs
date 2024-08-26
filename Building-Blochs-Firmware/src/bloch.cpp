@@ -57,7 +57,14 @@ void BlochSphere::loop()
     Vector3d move;
     float max_update;
 
-    while(1) switch(_state)
+    static state_t _prvstate = RESET;
+    if(_state != _prvstate)
+    {
+        DBG("%lu: State %s -> %s", millis(), StateNames[_prvstate], StateNames[_state]);
+        _prvstate = _state;
+    };
+
+    switch(_state)
     {
         case RESET:
             _state = IDLE;
