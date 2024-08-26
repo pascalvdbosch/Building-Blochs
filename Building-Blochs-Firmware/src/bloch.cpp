@@ -80,7 +80,7 @@ void BlochSphere::loop()
             break;
 
         case IDLE:
-            if(_queue.size() > 0)
+            if(!_queue.empty())
             {
                 _state = MOVE_START;
                 break;
@@ -89,7 +89,7 @@ void BlochSphere::loop()
 
         case MOVE_START:
             // Test for next move or go IDLE
-            if(_queue.size() < 1)
+            if(_queue.empty())
             {
                 _state = IDLE;
                 break;
@@ -153,10 +153,10 @@ void BlochSphere::loop()
             _driver.enableMotor(0);
 
             // Start next or go idle
-            if(_queue.size() > 0)
-                _state = MOVE_START;
-            else
+            if(_queue.empty())
                 _state = IDLE;
+            else
+                _state = MOVE_START;
             break;
     }; // while switch
 };
