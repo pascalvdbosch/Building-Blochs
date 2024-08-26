@@ -1,6 +1,8 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
+#include "m5stack-bus.h"
+
 #define VERSIONSTR "20230412"
 
 #define MOTOR_ANGLE_DEG         28.5
@@ -16,11 +18,5 @@
 #define MOTORS_MAX_ACCEL		5000
 
 // PINS
-#define PIN_MX_DIR		GPIO_NUM_17
-#define PIN_MX_STEP		GPIO_NUM_18
-#define PIN_MY_DIR		GPIO_NUM_7
-#define PIN_MY_STEP		GPIO_NUM_6
-#define PIN_MZ_DIR		GPIO_NUM_0
-#define PIN_MZ_STEP		GPIO_NUM_13
 
 #endif // __CONFIG_H

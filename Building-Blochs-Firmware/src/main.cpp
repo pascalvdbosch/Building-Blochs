@@ -16,13 +16,8 @@ Matrix3d MotorMapping; // initialized in setup()
 Vector3d update;
 
 void setup()
-{
-    Serial.begin(115200);
-    Serial1.begin(115200);
-    Serial2.begin(115200);
-    Serial.printf("Serial0");
-    Serial1.printf("Serial1");
-    Serial1.printf("Serial2");
+
+    Wire.begin(M5_STEPMOTORDRIVER_SDA, M5_STEPMOTORDRIVER_SCL, 400000);
 
     bloch.begin();
 

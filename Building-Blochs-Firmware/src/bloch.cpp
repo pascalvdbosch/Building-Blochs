@@ -15,9 +15,9 @@ void            printMatrix3d(Eigen::Matrix3d& m, const char* name = "M");
 #define MOTORS_OFF              _driver.enableMotor(0)
 
 BlochSphere::BlochSphere() : 
-    _motor1(AccelStepper::DRIVER, PIN_MX_STEP, PIN_MX_DIR),
-    _motor2(AccelStepper::DRIVER, PIN_MY_STEP, PIN_MY_DIR),
-    _motor3(AccelStepper::DRIVER, PIN_MZ_STEP, PIN_MZ_DIR)
+    _motor1(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_X, M5_STEPMOTORDRIVER_DIR_X),
+    _motor2(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_Y, M5_STEPMOTORDRIVER_DIR_Y),
+    _motor3(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_Z, M5_STEPMOTORDRIVER_DIR_Z)
 {
 };
 
