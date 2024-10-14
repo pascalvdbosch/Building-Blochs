@@ -26,8 +26,7 @@ class BlochSphere
 		void loop();
 
 		// FIXME: rotate(axis, degrees) pls
-		bool rotate(const Vector3d axis, const float angle_steps);
-		// const Vector3d& position() { return _position; };
+		bool rotate(const Vector3d axis, const int steps);
 
 	private:
 		typedef enum{

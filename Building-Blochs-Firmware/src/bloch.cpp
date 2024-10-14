@@ -50,10 +50,10 @@ bool BlochSphere::begin()
     return true;
 };
 
-bool BlochSphere::rotate(const Vector3d axis, const float angle)
+bool BlochSphere::rotate(const Vector3d axis, const int steps)
 {
     DBG("Queue move");
-    _queue.push(_motormatrix * axis * angle);
+    _queue.push(_motormatrix * axis.normalized() * steps);
     return true;
 };
 
