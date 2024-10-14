@@ -19,7 +19,6 @@ typedef std::queue<Vector3d> MovementQueue_t;
 class BlochSphere
 {
 	public:
-
 		BlochSphere();
 		~BlochSphere();
 

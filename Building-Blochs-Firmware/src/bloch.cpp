@@ -4,6 +4,7 @@
 
 #include "config.h"
 #include "log.h"
+#include "m5stack-data.h"
 
 // local functions
 using namespace Eigen;
@@ -27,7 +28,7 @@ bool BlochSphere::begin()
 {
     if(!_driver.init())
     {
-        WARNING("_driver return false. error?");
+        WARNING("_driver returned false. error?");
     };
 
     // Reset Fault status
