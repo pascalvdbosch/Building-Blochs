@@ -16,11 +16,20 @@
 // Y = avg - 3.5%
 // Z = avg + 4.5%
 
-#define MOTORS_MAX_SPEED        20000
-#define MOTORS_MAX_ACCEL		5000
+// Globe Diam : 160mm
+// Wheel Diam : 58mm
+// Motor steps: 200 * microstepping = 3200
+// Steps per revolution: 3200 steps / 58mm * 160mm = 8827
+#define STEPS_PER_ROTATION         		(3200*160/58)
 
-#define DISP_WIDTH				320
-#define DISP_HEIGHT				240
+// #define MOTORS_MAX_SPEED        20000
+// #define MOTORS_MAX_ACCEL		5000
+#define MOTORS_MAX_SPEED        15000
+#define MOTORS_MAX_ACCEL		4000
+
+#define DISPLAY_MAXFPS			30					// LVGL Update rate (timer_event)
+#define DISPLAY_WIDTH			320
+#define DISPLAY_HEIGHT			240
 
 // PINS
 

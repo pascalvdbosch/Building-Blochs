@@ -26,7 +26,11 @@ BlochSphere::~BlochSphere()
 
 bool BlochSphere::begin()
 {
-    if(!_driver.init())
+    // FIXME: Using Wire1 (configured on pins of Wire) because LovyanGFX configures the touch controller on port 1 (Wire1)
+    //  with these pins. See https://github.com/lovyan03/LovyanGFX/issues/628
+    //  This is a workaround for now. Fixing Lgfx works as well (set port = 0 in LGFX_AutoDetect_ESP32_all.hpp)
+    Wire1.begin(M5_STEPMOTORDRIVER_SDA, M5_STEPMOTORDRIVER_SCL, 400000);
+    if(!_driver.init(Wire1))
     {
         WARNING("_driver returned false. error?");
     };
