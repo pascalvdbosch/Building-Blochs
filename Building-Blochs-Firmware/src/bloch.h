@@ -30,13 +30,14 @@ class BlochSphere
 
 	private:
 		typedef enum{
-			RESET,
+			_NONE,				// Needed for prv_state detection
+			RESET,				// _state init value
 			IDLE,
 			MOVE_START,
 			MOVE_BUSY,
 			MOVE_END,
 		} state_t;
-		const char* StateNames[MOVE_END + 1] = {"RESET", "IDLE", "START", "BUSY", "END" };
+		const char* StateNames[MOVE_END + 1] = {"<none>", "RESET", "IDLE", "START", "BUSY", "END" };
 		state_t _state = RESET;
 		MovementQueue_t _queue;
 

@@ -66,7 +66,7 @@ void BlochSphere::loop()
     Vector3d move;
     float max_move;
 
-    static state_t _prvstate = RESET;
+    static state_t _prvstate = _NONE;
     if(_state != _prvstate)
     {
         DBG("%lu: State %s -> %s", millis(), StateNames[_prvstate], StateNames[_state]);
@@ -75,6 +75,7 @@ void BlochSphere::loop()
 
     switch(_state)
     {
+        case _NONE:
         case RESET:
             _driver.enableMotor(0);
             _driver.resetMotor(0, 0);    
