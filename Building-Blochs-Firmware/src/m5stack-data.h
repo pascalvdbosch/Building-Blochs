@@ -366,7 +366,7 @@
     #define M5_I2C_ADDR_ES7210      (0x40) // MIC ADC
     #define M5_I2C_ADDR_BM8563      (0x51) // RTC
     #define M5_I2C_ADDR_AW9523      (0x58) // IO-Expander
-    #define M5_I2C_ADDR_MPU6886     (0x68) // IMU
+    // #define M5_I2C_ADDR_MPU6886     (0x68) // IMU
     #define M5_I2C_ADDR_BMI270      (0x69) // IMU
     #define M5_I2C_ADDR_BMM150      (0x10) // Magneto
 #endif // M5STACK_CORES3
