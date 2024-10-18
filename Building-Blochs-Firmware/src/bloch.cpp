@@ -61,6 +61,33 @@ bool BlochSphere::rotate(const Vector3d axis, const int steps)
     return true;
 };
 
+bool BlochSphere::permute(const permute_t permute)
+{
+/*
+    X = (1, 0, 0) * 180deg
+    Y = (0, 1, 0) * 180deg
+    Z = (0, 0, 1) * 180deg
+    H = (sqrt(*2)/2, 0, sqrt(2)/2) * 180deg
+    s = (0, 0, 1) * 90deg
+    S = (0, 0, 1) * -90deg
+    t = (0, 0, 1) * 45deg
+    T = (0, 0, 1) * -45deg
+*/
+    switch(permute)
+    {
+        case PERMUTE_X:     rotate(Vector3d(1, 0, 0), STEPS_PER_ROTATION/2); return true;
+        case PERMUTE_Y:     rotate(Vector3d(0, 1, 0), STEPS_PER_ROTATION/2); return true;
+		case PERMUTE_Z:     rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION/2); return true;
+		case PERMUTE_H:     rotate(Vector3d(0.707, 0, 0.707), STEPS_PER_ROTATION/2); return true;
+		case PERMUTE_S:     rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION/4); return true;
+		case PERMUTE_NS:    rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION/4); return true;
+		case PERMUTE_T:     rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION/8); return true;
+		case PERMUTE_NT:    rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION/8); return true;
+        default:            return false;
+    };
+};
+
+
 void BlochSphere::loop()
 {
     Vector3d move;

@@ -28,6 +28,19 @@ class BlochSphere
 		// FIXME: rotate(axis, degrees) pls
 		bool rotate(const Vector3d axis, const int steps);
 
+		typedef enum
+		{
+			PERMUTE_X = 1,
+			PERMUTE_Y,
+			PERMUTE_Z,
+			PERMUTE_H,
+			PERMUTE_S,
+			PERMUTE_NS,
+			PERMUTE_T,
+			PERMUTE_NT,
+		} permute_t;
+		bool permute(const permute_t permute);
+
 	private:
 		typedef enum{
 			_NONE,				// Needed for prv_state detection
