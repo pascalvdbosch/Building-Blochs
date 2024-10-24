@@ -101,5 +101,5 @@ static void lv_touchpad_cb(lv_indev_drv_t * indev, lv_indev_data_t * data)
     data->point.x = touchX;
     data->point.y = touchY;
 
-    Serial.printf("Touch = (%d, %d)\n", touchX, touchY);
+    // Serial.printf("Touch = (%d, %d)\n", touchX, touchY);
 };
