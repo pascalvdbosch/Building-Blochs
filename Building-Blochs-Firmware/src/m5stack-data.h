@@ -1,7 +1,11 @@
 // From github.com/knifter/lib-tools, version/date 3-10-2024
 
-// #define M5STACK_CORE
-// #define M5STACK_CORE2
+#ifdef ARDUINO_M5STACK_CORE
+    #define M5STACK_CORE
+#endif
+#ifdef ARDUINO_M5STACK_CORE2
+     #define M5STACK_CORE2
+#endif
 #ifdef ARDUINO_M5STACK_CORES3
     #define M5STACK_CORES3
 #endif
