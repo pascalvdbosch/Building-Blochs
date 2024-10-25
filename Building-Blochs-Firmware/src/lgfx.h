@@ -4,7 +4,6 @@
 // We need to define these in this order
 #include "config.h"
 
-#define LGFX_USE_V1
 #define LGFX_AUTODETECT
 
 #include <LovyanGFX.hpp>

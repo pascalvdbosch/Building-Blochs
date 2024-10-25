@@ -2,10 +2,9 @@
 
 #include "config.h"
 
-#define LGFX_USE_V1
 #include <LovyanGFX.hpp>
 #include <lvgl.h>
-#include "esp_heap_caps.h"
+#include <esp_heap_caps.h>
 
 // Draw buffer(s)
 #define LV_BUF_SIZE					(DISPLAY_HEIGHT*DISPLAY_WIDTH/10)
