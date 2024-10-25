@@ -17,16 +17,8 @@ using namespace Eigen;
 void setup()
 {    
     Serial.begin(115200);
-    Serial0.begin(115200);
-    Serial1.begin(115200);
-    Serial2.begin(115200);
-    // USBSerial.begin(115200);
     // Wait until serial is enumerated
-    while(millis() < 2500);
     Serial.printf("Serial\n");
-    Serial0.printf("Serial0\n");
-    Serial1.printf("Serial1\n");
-    Serial2.printf("Serial2\n");
     // USBSerial.printf("USBSerial");
 
     gui_begin();
