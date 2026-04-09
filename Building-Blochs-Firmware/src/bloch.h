@@ -27,6 +27,7 @@ class BlochSphere
 
 		// FIXME: rotate(axis, degrees) pls
 		bool rotate(const Vector3d axis, const int steps);
+		Vector3d getState() const;
 
 		typedef enum
 		{
@@ -59,6 +60,7 @@ class BlochSphere
 		AccelStepper _motor2;
 		AccelStepper _motor3;
 		Matrix3d _motormatrix;
+		Vector3d _bloch_state;
 };
 
 

@@ -13,7 +13,8 @@ void printMatrix3d(Eigen::Matrix3d &m, const char *name = "M");
 
 BlochSphere::BlochSphere() : _motor1(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_X, M5_STEPMOTORDRIVER_DIR_X),
                              _motor2(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_Y, M5_STEPMOTORDRIVER_DIR_Y),
-                             _motor3(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_Z, M5_STEPMOTORDRIVER_DIR_Z) {
+                             _motor3(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_Z, M5_STEPMOTORDRIVER_DIR_Z),
+                             _bloch_state(0, 0, 1) {
                              };
 
 BlochSphere::~BlochSphere() {
@@ -31,7 +32,6 @@ bool BlochSphere::begin()
     {
         WARNING("_driver returned false. error?");
     };
-
 
     // Reset Fault status
     // _driver.setMicrostepResolution(Module_Stepmotor::kMicrosteps8);
@@ -55,8 +55,23 @@ bool BlochSphere::begin()
 bool BlochSphere::rotate(const Vector3d axis, const int steps)
 {
     DBG("Queue move");
+
+    // Keep a software copy of the Bloch vector for UI feedback.
+    const Vector3d k = axis.normalized();
+    const double theta = (2.0 * PI * static_cast<double>(steps)) / static_cast<double>(STEPS_PER_ROTATION);
+    const double c = cos(theta);
+    const double s = sin(theta);
+    const Vector3d v = _bloch_state;
+    _bloch_state = (v * c) + (k.cross(v) * s) + (k * k.dot(v) * (1.0 - c));
+    _bloch_state.normalize();
+
     _queue.push(_motormatrix * axis.normalized() * steps);
     return true;
+};
+
+Vector3d BlochSphere::getState() const
+{
+    return _bloch_state;
 };
 
 bool BlochSphere::permute(const permute_t permute)
@@ -89,13 +104,13 @@ bool BlochSphere::permute(const permute_t permute)
         rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION / 4);
         return true;
     case PERMUTE_NS:
-        rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION / 4);
+        rotate(Vector3d(0, 0, 1), -STEPS_PER_ROTATION / 4);
         return true;
     case PERMUTE_T:
         rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION / 8);
         return true;
     case PERMUTE_NT:
-        rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION / 8);
+        rotate(Vector3d(0, 0, 1), -STEPS_PER_ROTATION / 8);
         return true;
     default:
         return false;

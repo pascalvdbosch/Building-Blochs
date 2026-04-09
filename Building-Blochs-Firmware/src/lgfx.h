@@ -63,8 +63,16 @@ public:
 
 extern LGFX _lgfx;
 
+typedef enum
+{
+    SWIPE_NONE = 0,
+    SWIPE_LEFT,
+    SWIPE_RIGHT,
+} swipe_direction_t;
+
 void lgfx_init();
 void lvgl_init();
+bool lgfx_pop_swipe(swipe_direction_t *direction);
 
 extern lv_indev_drv_t _lv_touch_drv; /*Descriptor of a input device driver*/
 
