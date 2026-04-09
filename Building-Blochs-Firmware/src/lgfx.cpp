@@ -25,8 +25,13 @@ LGFX _lgfx;
 void lgfx_init()
 {
     _lgfx.init();
-    _lgfx.setRotation(1);
+#ifdef WOKWI
+    _lgfx.setColorDepth(16); 
+    _lgfx.setRotation(6);
+#else
     _lgfx.setColorDepth(24);
+    _lgfx.setRotation(1);
+#endif
 
 	_lgfx.fillScreen(_lgfx.color888(255, 128, 64));
 };

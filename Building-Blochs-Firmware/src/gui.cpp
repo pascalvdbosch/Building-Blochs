@@ -47,10 +47,10 @@ void gui_begin()
         lv_obj_align(btnH, LV_ALIGN_BOTTOM_RIGHT, -2, -2);
         
     lv_obj_t *lblX = lv_label_create(btnX);
-        lv_label_set_text(lblX, "X");
+        lv_label_set_text(lblX, "XX");
         lv_obj_center(lblX);
     lv_obj_t *lblY = lv_label_create(btnY);
-        lv_label_set_text(lblY, "Y");
+        lv_label_set_text(lblY, "YY");
         lv_obj_center(lblY);
     lv_obj_t *lblZ = lv_label_create(btnZ);
         lv_label_set_text(lblZ, "Z");

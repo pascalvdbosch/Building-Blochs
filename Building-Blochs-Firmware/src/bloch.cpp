@@ -9,18 +9,14 @@
 // local functions
 using namespace Eigen;
 Eigen::Matrix3d generateMotorMatrix(double wheel_angle_degrees, double z_rotation_degrees);
-void            printMatrix3d(Eigen::Matrix3d& m, const char* name = "M");
+void printMatrix3d(Eigen::Matrix3d &m, const char *name = "M");
 
+BlochSphere::BlochSphere() : _motor1(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_X, M5_STEPMOTORDRIVER_DIR_X),
+                             _motor2(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_Y, M5_STEPMOTORDRIVER_DIR_Y),
+                             _motor3(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_Z, M5_STEPMOTORDRIVER_DIR_Z) {
+                             };
 
-BlochSphere::BlochSphere() : 
-    _motor1(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_X, M5_STEPMOTORDRIVER_DIR_X),
-    _motor2(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_Y, M5_STEPMOTORDRIVER_DIR_Y),
-    _motor3(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_Z, M5_STEPMOTORDRIVER_DIR_Z)
-{
-};
-
-BlochSphere::~BlochSphere()
-{
+BlochSphere::~BlochSphere() {
 
 };
 
@@ -29,11 +25,13 @@ bool BlochSphere::begin()
     // FIXME: Using Wire1 (configured on pins of Wire) because LovyanGFX configures the touch controller on port 1 (Wire1)
     //  with these pins. See https://github.com/lovyan03/LovyanGFX/issues/628
     //  This is a workaround for now. Fixing Lgfx works as well (set port = 0 in LGFX_AutoDetect_ESP32_all.hpp)
+
     Wire1.begin(M5_STEPMOTORDRIVER_SDA, M5_STEPMOTORDRIVER_SCL, 400000);
-    if(!_driver.init(Wire1))
+    if (!_driver.init(Wire1))
     {
         WARNING("_driver returned false. error?");
     };
+
 
     // Reset Fault status
     // _driver.setMicrostepResolution(Module_Stepmotor::kMicrosteps8);
@@ -42,7 +40,7 @@ bool BlochSphere::begin()
     _motor3.enableOutputs();
 
     uint8_t status;
-    _driver.getFaultStatus(&status); 
+    _driver.getFaultStatus(&status);
     DBG("FaultStatus: 0x%0x", status); // probably 7, ok?
 
     // Generate Movement Matrix
@@ -63,30 +61,46 @@ bool BlochSphere::rotate(const Vector3d axis, const int steps)
 
 bool BlochSphere::permute(const permute_t permute)
 {
-/*
-    X = (1, 0, 0) * 180deg
-    Y = (0, 1, 0) * 180deg
-    Z = (0, 0, 1) * 180deg
-    H = (sqrt(*2)/2, 0, sqrt(2)/2) * 180deg
-    s = (0, 0, 1) * 90deg
-    S = (0, 0, 1) * -90deg
-    t = (0, 0, 1) * 45deg
-    T = (0, 0, 1) * -45deg
-*/
-    switch(permute)
+    /*
+        X = (1, 0, 0) * 180deg
+        Y = (0, 1, 0) * 180deg
+        Z = (0, 0, 1) * 180deg
+        H = (sqrt(*2)/2, 0, sqrt(2)/2) * 180deg
+        s = (0, 0, 1) * 90deg
+        S = (0, 0, 1) * -90deg
+        t = (0, 0, 1) * 45deg
+        T = (0, 0, 1) * -45deg
+    */
+    switch (permute)
     {
-        case PERMUTE_X:     rotate(Vector3d(1, 0, 0), STEPS_PER_ROTATION/2); return true;
-        case PERMUTE_Y:     rotate(Vector3d(0, 1, 0), STEPS_PER_ROTATION/2); return true;
-		case PERMUTE_Z:     rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION/2); return true;
-		case PERMUTE_H:     rotate(Vector3d(0.707, 0, 0.707), STEPS_PER_ROTATION/2); return true;
-		case PERMUTE_S:     rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION/4); return true;
-		case PERMUTE_NS:    rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION/4); return true;
-		case PERMUTE_T:     rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION/8); return true;
-		case PERMUTE_NT:    rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION/8); return true;
-        default:            return false;
+    case PERMUTE_X:
+        rotate(Vector3d(1, 0, 0), STEPS_PER_ROTATION / 2);
+        return true;
+    case PERMUTE_Y:
+        rotate(Vector3d(0, 1, 0), STEPS_PER_ROTATION / 2);
+        return true;
+    case PERMUTE_Z:
+        rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION / 2);
+        return true;
+    case PERMUTE_H:
+        rotate(Vector3d(0.707, 0, 0.707), STEPS_PER_ROTATION / 2);
+        return true;
+    case PERMUTE_S:
+        rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION / 4);
+        return true;
+    case PERMUTE_NS:
+        rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION / 4);
+        return true;
+    case PERMUTE_T:
+        rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION / 8);
+        return true;
+    case PERMUTE_NT:
+        rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION / 8);
+        return true;
+    default:
+        return false;
     };
 };
-
 
 void BlochSphere::loop()
 {
@@ -94,103 +108,103 @@ void BlochSphere::loop()
     float max_move;
 
     static state_t _prvstate = _NONE;
-    if(_state != _prvstate)
+    if (_state != _prvstate)
     {
         DBG("%lu: State %s -> %s", millis(), StateNames[_prvstate], StateNames[_state]);
         _prvstate = _state;
     };
 
-    switch(_state)
+    switch (_state)
     {
-        case _NONE:
-        case RESET:
-            _driver.enableMotor(0);
-            _driver.resetMotor(0, 0);    
-            _driver.resetMotor(1, 0);    
-            _driver.resetMotor(2, 0);
+    case _NONE:
+    case RESET:
+        _driver.enableMotor(0);
+        _driver.resetMotor(0, 0);
+        _driver.resetMotor(1, 0);
+        _driver.resetMotor(2, 0);
 
+        _state = IDLE;
+        break;
+
+    case IDLE:
+        if (!_queue.empty())
+        {
+            _state = MOVE_START;
+            break;
+        };
+        return;
+
+    case MOVE_START:
+        // Test for next move or go IDLE
+        if (_queue.empty())
+        {
             _state = IDLE;
             break;
+        };
 
-        case IDLE:
-            if(!_queue.empty())
-            {
-                _state = MOVE_START;
-                break;
-            };
-            return;
+        // pop move from queue
+        move = _queue.front();
+        _queue.pop();
 
-        case MOVE_START:
-            // Test for next move or go IDLE
-            if(_queue.empty())
-            {
-                _state = IDLE;
-                break;
-            };
+        // Start executing move
+        _driver.enableMotor(1);
+        // delay(30);
 
-            // pop move from queue
-            move = _queue.front();
-            _queue.pop();
+        // FIXME: instead of max() use the norm of the vector here and for speed
+        //   or maybe the inner product of the update for the axis
+        max_move = max(max(abs(move[0]), abs(move[1])), abs(move[2]));
 
-            // Start executing move
-            _driver.enableMotor(1);
-            // delay(30);
+        _motor1.setAcceleration(move[2] / max_move * MOTORS_MAX_ACCEL);
+        _motor2.setAcceleration(move[1] / max_move * MOTORS_MAX_ACCEL);
+        _motor3.setAcceleration(move[0] / max_move * MOTORS_MAX_ACCEL);
+        // DBG("ACCEL: %f %f %f",
+        //     move[2] / max_move * MOTORS_MAX_ACCEL,
+        //     move[1] / max_move * MOTORS_MAX_ACCEL,
+        //     move[0] / max_move * MOTORS_MAX_ACCEL
+        // );
 
-            //FIXME: instead of max() use the norm of the vector here and for speed
-            //  or maybe the inner product of the update for the axis
-            max_move = max(max(abs(move[0]), abs(move[1])), abs(move[2]));
+        _motor1.setMaxSpeed(move[2] / max_move * MOTORS_MAX_SPEED);
+        _motor2.setMaxSpeed(move[1] / max_move * MOTORS_MAX_SPEED);
+        _motor3.setMaxSpeed(move[0] / max_move * MOTORS_MAX_SPEED);
+        // DBG("SPEED: %f %f %f",
+        //     move[2] / max_move * MOTORS_MAX_SPEED,
+        //     move[1] / max_move * MOTORS_MAX_SPEED,
+        //     move[0] / max_move * MOTORS_MAX_SPEED
+        // );
 
-            _motor1.setAcceleration(move[2] / max_move * MOTORS_MAX_ACCEL);
-            _motor2.setAcceleration(move[1] / max_move * MOTORS_MAX_ACCEL);
-            _motor3.setAcceleration(move[0] / max_move * MOTORS_MAX_ACCEL);
-            // DBG("ACCEL: %f %f %f",
-            //     move[2] / max_move * MOTORS_MAX_ACCEL,
-            //     move[1] / max_move * MOTORS_MAX_ACCEL,
-            //     move[0] / max_move * MOTORS_MAX_ACCEL
-            // );
+        DBG("%lu: Move (%.0f, %.0f, %.0f) (max=%.0f)", millis(), move[0], move[1], move[2], max_move);
+        _motor1.move(move[2]);
+        _motor2.move(move[1]);
+        _motor3.move(move[0]);
 
-            _motor1.setMaxSpeed(move[2] / max_move * MOTORS_MAX_SPEED);
-            _motor2.setMaxSpeed(move[1] / max_move * MOTORS_MAX_SPEED);
-            _motor3.setMaxSpeed(move[0] / max_move * MOTORS_MAX_SPEED);
-            // DBG("SPEED: %f %f %f",
-            //     move[2] / max_move * MOTORS_MAX_SPEED,
-            //     move[1] / max_move * MOTORS_MAX_SPEED,
-            //     move[0] / max_move * MOTORS_MAX_SPEED
-            // );
+        _state = MOVE_BUSY;
+        break;
 
-            DBG("%lu: Move (%.0f, %.0f, %.0f) (max=%.0f)", millis(), move[0], move[1], move[2], max_move);
-            _motor1.move(move[2]);
-            _motor2.move(move[1]);
-            _motor3.move(move[0]);
+    case MOVE_BUSY:
+        // Wait until all motors have finished
+        _motor1.run();
+        _motor2.run();
+        _motor3.run();
 
-            _state = MOVE_BUSY;
+        if (_motor1.distanceToGo())
+            break;
+        if (_motor2.distanceToGo())
+            break;
+        if (_motor3.distanceToGo())
             break;
 
-        case MOVE_BUSY:
-            // Wait until all motors have finished
-            _motor1.run();
-            _motor2.run();
-            _motor3.run();
+        _state = MOVE_END;
+        break;
 
-            if(_motor1.distanceToGo())
-                break;
-            if(_motor2.distanceToGo())
-                break;
-            if(_motor3.distanceToGo())
-                break;
-            
-            _state = MOVE_END;
-            break;
-        
-        case MOVE_END:
-            _driver.enableMotor(0);
+    case MOVE_END:
+        _driver.enableMotor(0);
 
-            // Start next or go idle
-            if(_queue.empty())
-                _state = IDLE;
-            else
-                _state = MOVE_START;
-            break;
+        // Start next or go idle
+        if (_queue.empty())
+            _state = IDLE;
+        else
+            _state = MOVE_START;
+        break;
     }; // while switch
 };
 
@@ -202,41 +216,41 @@ Matrix3d generateMotorMatrix(double /*mount_angle*/ wa_deg, double z_rot_deg)
     double wheel_angle = wa_deg * PI / 180;
     double z_rot = z_rot_deg * PI / 180;
     // var wheel_vectors = [0., 2.*Math.PI/3, 4.*Math.PI/3].map((phi) => [Math.sin(wheel_angle) * Math.cos(phi), Math.sin(wheel_angle) * Math.sin(phi), -Math.cos(wheel_angle)])
-    // double wheel_vectors = 
-    //   map [0, 2/3*PI, 4/3*PI] onto [sin(wheel_angle)*cos(phi), 
-    //                                 sin(wheel_angle)*sin(phi), 
+    // double wheel_vectors =
+    //   map [0, 2/3*PI, 4/3*PI] onto [sin(wheel_angle)*cos(phi),
+    //                                 sin(wheel_angle)*sin(phi),
     //                                 -cos(wheel_angle)]
     double phi;
     // Vector3d wheel_vector[3]; // Wheel direction seen from center of ball
     Matrix3d wheel_vector;
     phi = 0 + z_rot;
-    wheel_vector.row(0) << sin(wheel_angle)*cos(phi), sin(wheel_angle)*sin(phi), -cos(wheel_angle);
-    phi = 2*PI/3 + z_rot;
-    wheel_vector.row(1) << sin(wheel_angle)*cos(phi), sin(wheel_angle)*sin(phi), -cos(wheel_angle);
-    phi = 4*PI/3 + z_rot;
-    wheel_vector.row(2) << sin(wheel_angle)*cos(phi), sin(wheel_angle)*sin(phi), -cos(wheel_angle);
+    wheel_vector.row(0) << sin(wheel_angle) * cos(phi), sin(wheel_angle) * sin(phi), -cos(wheel_angle);
+    phi = 2 * PI / 3 + z_rot;
+    wheel_vector.row(1) << sin(wheel_angle) * cos(phi), sin(wheel_angle) * sin(phi), -cos(wheel_angle);
+    phi = 4 * PI / 3 + z_rot;
+    wheel_vector.row(2) << sin(wheel_angle) * cos(phi), sin(wheel_angle) * sin(phi), -cos(wheel_angle);
 
-    // var wheel_normal_vectors = 
-    // [0., 2.*Math.PI/3, 4.*Math.PI/3].map((phi) => 
-    //      [Math.cos(wheel_angle) * Math.cos(phi), 
-    //       Math.cos(wheel_angle) * Math.sin(phi), 
+    // var wheel_normal_vectors =
+    // [0., 2.*Math.PI/3, 4.*Math.PI/3].map((phi) =>
+    //      [Math.cos(wheel_angle) * Math.cos(phi),
+    //       Math.cos(wheel_angle) * Math.sin(phi),
     //       Math.sin(wheel_angle)])
     //          .map((x) => [ .. ] // Normalize
     Matrix3d wheel_normal;
     phi = 0 + z_rot;
-    wheel_normal.row(0) << cos(wheel_angle)*cos(phi), cos(wheel_angle)*sin(phi), sin(wheel_angle);
-    phi = 2*PI/3 + z_rot;
-    wheel_normal.row(1) << cos(wheel_angle)*cos(phi), cos(wheel_angle)*sin(phi), sin(wheel_angle);
-    phi = 4*PI/3 + z_rot;
-    wheel_normal.row(2) << cos(wheel_angle)*cos(phi), cos(wheel_angle)*sin(phi), sin(wheel_angle);
+    wheel_normal.row(0) << cos(wheel_angle) * cos(phi), cos(wheel_angle) * sin(phi), sin(wheel_angle);
+    phi = 2 * PI / 3 + z_rot;
+    wheel_normal.row(1) << cos(wheel_angle) * cos(phi), cos(wheel_angle) * sin(phi), sin(wheel_angle);
+    phi = 4 * PI / 3 + z_rot;
+    wheel_normal.row(2) << cos(wheel_angle) * cos(phi), cos(wheel_angle) * sin(phi), sin(wheel_angle);
     // wheel_normal[0].normalize();
     // wheel_normal[1].normalize();
     // wheel_normal[2].normalize();
 
-    // var wheel_direction_vectors = 
-    //  wheel_vectors.map((a,i) => 
+    // var wheel_direction_vectors =
+    //  wheel_vectors.map((a,i) =>
     // [a[1] * wheel_normal_vectors[i][2] - a[2] * wheel_normal_vectors[i][1],   -> a_y*n_z-a_z*n_y
-    //  a[2] * wheel_normal_vectors[i][0] - a[0] * wheel_normal_vectors[i][2], 
+    //  a[2] * wheel_normal_vectors[i][0] - a[0] * wheel_normal_vectors[i][2],
     //  a[0] * wheel_normal_vectors[i][1] - a[1] * wheel_normal_vectors[i][0]])
     //      .map((x) => [ .. ] // Normalize
     Matrix3d wheel_dir;
@@ -244,29 +258,29 @@ Matrix3d generateMotorMatrix(double /*mount_angle*/ wa_deg, double z_rot_deg)
     wheel_dir.row(1) << wheel_vector.row(1).cross(wheel_normal.row(1));
     wheel_dir.row(2) << wheel_vector.row(2).cross(wheel_normal.row(2));
 
-//     var coeff_matrix = wheel_vectors.map((a,i) => 
-            // [a[1] * wheel_direction_vectors[i][2] - a[2] * wheel_direction_vectors[i][1], 
-            //  a[2] * wheel_direction_vectors[i][0] - a[0] * wheel_direction_vectors[i][2], 
-            //  a[0] * wheel_direction_vectors[i][1] - a[1] * wheel_direction_vectors[i][0]])
+    //     var coeff_matrix = wheel_vectors.map((a,i) =>
+    // [a[1] * wheel_direction_vectors[i][2] - a[2] * wheel_direction_vectors[i][1],
+    //  a[2] * wheel_direction_vectors[i][0] - a[0] * wheel_direction_vectors[i][2],
+    //  a[0] * wheel_direction_vectors[i][1] - a[1] * wheel_direction_vectors[i][0]])
     Matrix3d wheel_motion;
     wheel_motion.row(0) = wheel_vector.row(0).cross(wheel_dir.row(0)).normalized();
     wheel_motion.row(1) = wheel_vector.row(1).cross(wheel_dir.row(1)).normalized();
     wheel_motion.row(2) = wheel_vector.row(2).cross(wheel_dir.row(2)).normalized();
 
-//     coeff_matrix = coeff_matrix.map((x) => [-x[0], x[1], -x[2]])
+    //     coeff_matrix = coeff_matrix.map((x) => [-x[0], x[1], -x[2]])
     Matrix3d m;
-    m <<    -wheel_motion(0, 0), wheel_motion(0, 1), -wheel_motion(0, 2),
-            -wheel_motion(1, 0), wheel_motion(1, 1), -wheel_motion(1, 2),
-            -wheel_motion(2, 0), wheel_motion(2, 1), -wheel_motion(2, 2);
+    m << -wheel_motion(0, 0), wheel_motion(0, 1), -wheel_motion(0, 2),
+        -wheel_motion(1, 0), wheel_motion(1, 1), -wheel_motion(1, 2),
+        -wheel_motion(2, 0), wheel_motion(2, 1), -wheel_motion(2, 2);
 
     return m;
 };
 
-void printMatrix3d(Matrix3d& m, const char* name)
+void printMatrix3d(Matrix3d &m, const char *name)
 {
     Serial.printf(" %s = ", name);
-    for(int r=0; r<3; r++)
+    for (int r = 0; r < 3; r++)
     {
-        Serial.printf("\t%0.8f %0.8f %0.8f\n", m(r,0), m(r,1), m(r,2));
+        Serial.printf("\t%0.8f %0.8f %0.8f\n", m(r, 0), m(r, 1), m(r, 2));
     };
 };

@@ -1,0 +1,273 @@
+{
+  "version": 1,
+  "author": "Ambitious maker",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-m5stack-core-s3",
+      "id": "board",
+      "top": -50,
+      "left": -100,
+      "attrs": {
+        "serialInterface": "USB_SERIAL_JTAG"
+      }
+    },
+    {
+      "type": "wokwi-vcc",
+      "id": "vcc",
+      "top": -250,
+      "left": 150,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-gnd",
+      "id": "gnd",
+      "top": -200,
+      "left": 150,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-a4988",
+      "id": "drvX",
+      "top": -150,
+      "left": 250,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-stepper-motor",
+      "id": "motX",
+      "top": -300,
+      "left": 250,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-a4988",
+      "id": "drvY",
+      "top": -150,
+      "left": 450,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-stepper-motor",
+      "id": "motY",
+      "top": -300,
+      "left": 450,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-a4988",
+      "id": "drvZ",
+      "top": -150,
+      "left": 650,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-stepper-motor",
+      "id": "motZ",
+      "top": -300,
+      "left": 650,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    [
+      "drvX:VDD",
+      "vcc:VCC",
+      "red",
+      []
+    ],
+    [
+      "drvX:VMOT",
+      "vcc:VCC",
+      "red",
+      []
+    ],
+    [
+      "drvX:GND",
+      "gnd:GND",
+      "black",
+      []
+    ],
+    [
+      "drvX:GND.1",
+      "gnd:GND",
+      "black",
+      []
+    ],
+    [
+      "drvX:RESET",
+      "drvX:SLEEP",
+      "green",
+      []
+    ],
+    [
+      "drvX:STEP",
+      "board:G18",
+      "orange",
+      []
+    ],
+    [
+      "drvX:DIR",
+      "board:G17",
+      "yellow",
+      []
+    ],
+    [
+      "drvX:1B",
+      "motX:A-",
+      "blue",
+      []
+    ],
+    [
+      "drvX:1A",
+      "motX:A+",
+      "green",
+      []
+    ],
+    [
+      "drvX:2A",
+      "motX:B+",
+      "yellow",
+      []
+    ],
+    [
+      "drvX:2B",
+      "motX:B-",
+      "orange",
+      []
+    ],
+    [
+      "drvY:VDD",
+      "vcc:VCC",
+      "red",
+      []
+    ],
+    [
+      "drvY:VMOT",
+      "vcc:VCC",
+      "red",
+      []
+    ],
+    [
+      "drvY:GND",
+      "gnd:GND",
+      "black",
+      []
+    ],
+    [
+      "drvY:GND.1",
+      "gnd:GND",
+      "black",
+      []
+    ],
+    [
+      "drvY:RESET",
+      "drvY:SLEEP",
+      "green",
+      []
+    ],
+    [
+      "drvY:STEP",
+      "board:G6",
+      "orange",
+      []
+    ],
+    [
+      "drvY:DIR",
+      "board:G7",
+      "yellow",
+      []
+    ],
+    [
+      "drvY:1B",
+      "motY:A-",
+      "blue",
+      []
+    ],
+    [
+      "drvY:1A",
+      "motY:A+",
+      "green",
+      []
+    ],
+    [
+      "drvY:2A",
+      "motY:B+",
+      "yellow",
+      []
+    ],
+    [
+      "drvY:2B",
+      "motY:B-",
+      "orange",
+      []
+    ],
+    [
+      "drvZ:VDD",
+      "vcc:VCC",
+      "red",
+      []
+    ],
+    [
+      "drvZ:VMOT",
+      "vcc:VCC",
+      "red",
+      []
+    ],
+    [
+      "drvZ:GND",
+      "gnd:GND",
+      "black",
+      []
+    ],
+    [
+      "drvZ:GND.1",
+      "gnd:GND",
+      "black",
+      []
+    ],
+    [
+      "drvZ:RESET",
+      "drvZ:SLEEP",
+      "green",
+      []
+    ],
+    [
+      "drvZ:STEP",
+      "board:G13",
+      "orange",
+      []
+    ],
+    [
+      "drvZ:DIR",
+      "board:G0",
+      "yellow",
+      []
+    ],
+    [
+      "drvZ:1B",
+      "motZ:A-",
+      "blue",
+      []
+    ],
+    [
+      "drvZ:1A",
+      "motZ:A+",
+      "green",
+      []
+    ],
+    [
+      "drvZ:2A",
+      "motZ:B+",
+      "yellow",
+      []
+    ],
+    [
+      "drvZ:2B",
+      "motZ:B-",
+      "orange",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>M5Stack Web Controller</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 20px;
+        background-color: #222;
+        color: #fff;
+      }
+      button,
+      input {
+        padding: 10px;
+        margin: 5px;
+        font-size: 16px;
+        border-radius: 5px;
+        border: none;
+      }
+      button {
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+      }
+      button:disabled {
+        background-color: #555;
+        cursor: not-allowed;
+      }
+      #output {
+        background: #111;
+        padding: 10px;
+        height: 200px;
+        overflow-y: auto;
+        font-family: monospace;
+        border: 1px solid #444;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>M5Stack Controller</h2>
+    <button id="connectBtn">Connect to M5Stack</button>
+    <br /><br />
+    <input
+      type="text"
+      id="commandInput"
+      placeholder="Type command (e.g., GREEN)"
+    />
+    <button id="sendBtn" disabled>Send Command</button>
+
+    <h3>Log:</h3>
+    <div id="output"></div>
+
+    <script>
+      let port;
+      let writer;
+      let reader; // Variable to hold our reader stream
+
+      const connectBtn = document.getElementById("connectBtn");
+      const sendBtn = document.getElementById("sendBtn");
+      const commandInput = document.getElementById("commandInput");
+      const output = document.getElementById("output");
+
+      function log(text) {
+        output.innerHTML += `<div>> ${text}</div>`;
+        output.scrollTop = output.scrollHeight;
+      }
+
+      // Function to constantly listen for incoming data
+      async function listenToPort() {
+        const textDecoder = new TextDecoderStream();
+        const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+        reader = textDecoder.readable.getReader();
+
+        let buffer = ""; // Temporarily stores chunks until a full line is received
+
+        try {
+          while (true) {
+            const { value, done } = await reader.read();
+
+            if (done) {
+              // The stream has been closed
+              reader.releaseLock();
+              break;
+            }
+
+            if (value) {
+              buffer += value;
+              // Split the incoming data by newline characters
+              let lines = buffer.split("\n");
+
+              // The last item in the array is either an incomplete line or an empty string.
+              // We pop it off and keep it in the buffer for the next chunk of data.
+              buffer = lines.pop();
+
+              // Log all complete lines
+              for (let line of lines) {
+                // Remove the carriage return (\r) if present and log it
+                log(`Received: ${line.replace("\r", "")}`);
+              }
+            }
+          }
+        } catch (error) {
+          log("Read error: " + error);
+        }
+      }
+
+      connectBtn.addEventListener("click", async () => {
+        try {
+          // 1. Request a port and open a connection
+          port = await navigator.serial.requestPort();
+          await port.open({ baudRate: 115200 });
+
+          log("Connected successfully!");
+          sendBtn.disabled = false;
+
+          // 2. Set up the output stream (sending strings to ESP32)
+          const textEncoder = new TextEncoderStream();
+          const writableStreamClosed = textEncoder.readable.pipeTo(
+            port.writable,
+          );
+          writer = textEncoder.writable.getWriter();
+
+          // 3. Set up the input stream (reading strings from ESP32)
+          listenToPort();
+        } catch (error) {
+          log("Connection error: " + error);
+        }
+      });
+
+      sendBtn.addEventListener("click", async () => {
+        const command = commandInput.value + "\n";
+
+        if (writer) {
+          await writer.write(command);
+          log(`Sent: ${commandInput.value}`);
+          commandInput.value = "";
+        }
+      });
+
+      commandInput.addEventListener("keypress", function (e) {
+        if (e.key === "Enter" && !sendBtn.disabled) {
+          sendBtn.click();
+        }
+      });
+    </script>
+  </body>
+</html>

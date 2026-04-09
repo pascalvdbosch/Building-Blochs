@@ -1,0 +1,1449 @@
+// --- Amalgamated System Includes ---
+#include <AccelStepper.h>
+#include <Arduino.h>
+#include <ArduinoEigenDense.h>
+#include <BLE2902.h>
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <LovyanGFX.hpp>
+#include <Module_Stepmotor.h>
+#include <esp_heap_caps.h>
+#include <lvgl.h>
+#include <queue>
+#include <stdlib.h>
+
+// --- Begin bloch.h ---
+#ifndef __BLOCH_H
+#define __BLOCH_H
+
+
+using namespace Eigen;
+
+#define AXIS_X                {1, 0, 0}
+#define AXIS_Y                {0, 1, 0}
+#define AXIS_Z                {0, 0, 1}
+// #define VECTOR_H              {0.707106, 0, 0.707106} // sqrt(2)/2
+
+typedef std::queue<Vector3d> MovementQueue_t;
+
+class BlochSphere
+{
+	public:
+		BlochSphere();
+		~BlochSphere();
+
+		bool begin();
+		void loop();
+
+		// FIXME: rotate(axis, degrees) pls
+		bool rotate(const Vector3d axis, const int steps);
+
+		typedef enum
+		{
+			PERMUTE_X = 1,
+			PERMUTE_Y,
+			PERMUTE_Z,
+			PERMUTE_H,
+			PERMUTE_S,
+			PERMUTE_NS,
+			PERMUTE_T,
+			PERMUTE_NT,
+		} permute_t;
+		bool permute(const permute_t permute);
+
+	private:
+		typedef enum{
+			_NONE,				// Needed for prv_state detection
+			RESET,				// _state init value
+			IDLE,
+			MOVE_START,
+			MOVE_BUSY,
+			MOVE_END,
+		} state_t;
+		const char* StateNames[MOVE_END + 1] = {"<none>", "RESET", "IDLE", "START", "BUSY", "END" };
+		state_t _state = RESET;
+		MovementQueue_t _queue;
+
+		Module_Stepmotor _driver;
+		AccelStepper _motor1;
+		AccelStepper _motor2;
+		AccelStepper _motor3;
+		Matrix3d _motormatrix;
+};
+
+
+#endif // __BLOCH_H// --- End bloch.h ---
+
+// --- Begin gui.h ---
+#ifndef __GUI_H
+#define __GUI_H
+
+void gui_begin();
+void gui_loop();
+
+#endif // __GUI_H
+// --- End gui.h ---
+
+// --- Begin lgfx.h ---
+#ifndef __LGFX_H
+#define __LGFX_H
+
+// We need to define these in this order
+// --- Begin ..\include\config.h ---
+#ifndef __CONFIG_H
+#define __CONFIG_H
+
+#define VERSIONSTR "20241018"
+
+#define MOTOR_ANGLE_DEG         30
+#define BASE_Z_ROTATION_DEG     30
+
+// Globe Diam : 160mm
+// Wheel Diam : 58mm
+// Motor steps: 200 * microstepping = 200*16 = 3200
+// Steps per revolution: 3200 steps / 58mm * 160mm = 8827
+#define STEPS_PER_ROTATION         		(3200*160/58)
+
+// #define MOTORS_MAX_SPEED        20000
+// #define MOTORS_MAX_ACCEL		5000
+#define MOTORS_MAX_SPEED        15000
+#define MOTORS_MAX_ACCEL		4000
+
+#define DISPLAY_MAXFPS			30					// LVGL Update rate (timer_event)
+#define DISPLAY_WIDTH			320
+#define DISPLAY_HEIGHT			240
+
+// PINS
+
+#endif // __CONFIG_H
+// --- End ..\include\config.h ---
+
+
+#ifndef WOKWI
+#define LGFX_AUTODETECT
+#endif
+
+
+#ifdef WOKWI
+class LGFX : public lgfx::LGFX_Device
+{
+    lgfx::Panel_ILI9342 _panel_instance; // <-- CHANGED to ILI9342
+    lgfx::Bus_SPI _bus_instance;
+
+public:
+    LGFX(void)
+    {
+        {
+            auto cfg = _bus_instance.config();
+            cfg.spi_host = SPI2_HOST;
+            cfg.spi_mode = 0;
+            cfg.freq_write = 40000000;
+            cfg.freq_read = 16000000;
+            cfg.spi_3wire = true;
+            cfg.use_lock = true;
+            cfg.dma_channel = SPI_DMA_CH_AUTO;
+            // CoreS3 exact SPI pins
+            cfg.pin_sclk = 36;
+            cfg.pin_mosi = 37;
+            cfg.pin_miso = -1;
+            cfg.pin_dc = 35;
+            _bus_instance.config(cfg);
+            _panel_instance.setBus(&_bus_instance);
+        }
+        {
+            auto cfg = _panel_instance.config();
+            cfg.pin_cs = 3; // CoreS3 CS pin
+            cfg.pin_rst = -1;
+            cfg.pin_busy = -1;
+            cfg.panel_width = 320;  // <-- CHANGED to native landscape width
+            cfg.panel_height = 240; // <-- CHANGED to native landscape height
+            cfg.offset_x = 0;
+            cfg.offset_y = 0;
+            cfg.offset_rotation = 0;
+            cfg.dummy_read_pixel = 8;
+            cfg.dummy_read_bits = 1;
+            cfg.readable = false;
+            cfg.invert = true; // <-- CoreS3 panels usually need this inverted
+            cfg.rgb_order = false;
+            cfg.dlen_16bit = false;
+            cfg.bus_shared = true;
+            _panel_instance.config(cfg);
+        }
+        setPanel(&_panel_instance);
+    }
+};
+#endif
+
+extern LGFX _lgfx;
+
+void lgfx_init();
+void lvgl_init();
+
+extern lv_indev_drv_t _lv_touch_drv; /*Descriptor of a input device driver*/
+
+#endif // __SOOGH_LGFX_H
+// --- End lgfx.h ---
+
+// --- Begin log.h ---
+#ifndef __LOG_H
+#define __LOG_H
+
+
+// Helpers
+#ifndef __STRINGIFY
+#  define __STRINGIFY(x)    #x
+#endif
+#define ___STRINGIFY(x) __STRINGIFY(x)
+#define __LINESTR__ ___STRINGIFY(__LINE__)
+
+#define DEBUG_DEVICE        Serial
+#define DBG(msg, ...)      DEBUG_DEVICE.printf("%s.%s: " msg "\n", __FILE__, __FUNCTION__, ##__VA_ARGS__)
+#define INFO(msg, ...)	   DEBUG_DEVICE.printf("%s: " msg "\n", __FUNCTION__, ##__VA_ARGS__)
+#define WARNING(msg, ...)  DEBUG_DEVICE.printf("WARN :" __FILE__ ".%s(" __LINESTR__ "): " msg "\n", __FUNCTION__, ##__VA_ARGS__)
+#define ERROR(msg, ...)    DEBUG_DEVICE.printf("ERROR:" __FILE__ ".%s(" __LINESTR__ "): " msg "\n", __FUNCTION__, ##__VA_ARGS__)
+
+#endif // __LOG_H// --- End log.h ---
+
+// --- Begin m5stack-data.h ---
+// From github.com/knifter/lib-tools, version/date 3-10-2024
+
+#ifdef ARDUINO_M5STACK_CORE
+    #define M5STACK_CORE
+#endif
+#ifdef ARDUINO_M5STACK_CORE2
+     #define M5STACK_CORE2
+#endif
+#ifdef ARDUINO_M5STACK_CORES3
+    #define M5STACK_CORES3
+#endif
+
+/******** GPIO to BUS Pin *******************************************************/
+#ifdef  M5STACK_CORE
+    // 1, 3, 5 = GND
+    #define M5_BUS_2                GPIO_NUM_35     // ADC1
+    #define M5_BUS_4                GPIO_NUM_36     // ADC
+    // 6 = RESET / EN
+    #define M5_BUS_7                GPIO_NUM_23     // SPI_MOSI
+    #define M5_BUS_8                GPIO_NUM_25     // AUDIO_L / DAC / SPEAKER
+    #define M5_BUS_9                GPIO_NUM_19     // SPI_MISO
+    #define M5_BUS_10               GPIO_NUM_26     // AUDIO_R / DAC
+    #define M5_BUS_11               GPIO_NUM_18     // SPI_SCK
+    // 12 = 3V3
+    #define M5_BUS_13               GPIO_NUM_3      // RXD1
+    #define M5_BUS_14               GPIO_NUM_1      // TXD1
+    #define M5_BUS_15               GPIO_NUM_16     // RXD2
+    #define M5_BUS_16               GPIO_NUM_17     // TXD2
+    #define M5_BUS_17               GPIO_NUM_21     // intSDA
+    #define M5_BUS_18               GPIO_NUM_22     // intSCL
+    #define M5_BUS_19               GPIO_NUM_2      // IO6
+    #define M5_BUS_20               GPIO_NUM_5      // IO7
+    #define M5_BUS_21               GPIO_NUM_12     // I2S_SCLK
+    #define M5_BUS_22               GPIO_NUM_13     // I2S_WS
+    #define M5_BUS_23               GPIO_NUM_15     // I2S_OUT
+    #define M5_BUS_24               GPIO_NUM_0      // I2S_LRCLK
+    // 25, 27, 29 = HPWR
+    #define M5_BUS_26               GPIO_NUM_34     // I2S_EN
+    // 28 = 5V
+    // 30 = BATTERY
+#endif
+
+#ifdef M5STACK_CORE2
+    // 1, 3, 5 = GND
+    #define M5_BUS_2                GPIO_NUM_35     // ADC
+    #define M5_BUS_4                GPIO_NUM_36     // ADC
+    // 6 = RESET
+    #define M5_BUS_7                GPIO_NUM_23     // SPI_MOSI
+    #define M5_BUS_8                GPIO_NUM_25     // AUDIO_L / DAC
+    #define M5_BUS_9                GPIO_NUM_38     // SPI_MISO
+    #define M5_BUS_10               GPIO_NUM_26     // AUDIO_R / DAC
+    #define M5_BUS_11               GPIO_NUM_18     // SPI_SCK
+    // 12 = 3.3V
+    #define M5_BUS_13               GPIO_NUM_3      // RXD0
+    #define M5_BUS_14               GPIO_NUM_1      // TXD0
+    #define M5_BUS_15               GPIO_NUM_13     // RXD2
+    #define M5_BUS_16               GPIO_NUM_14     // TXD2
+    #define M5_BUS_17               GPIO_NUM_21     // intSDA
+    #define M5_BUS_18               GPIO_NUM_22     // intSCL
+    #define M5_BUS_19               GPIO_NUM_32     // PA_SDA
+    #define M5_BUS_20               GPIO_NUM_33     // PA_SCL
+    #define M5_BUS_21               GPIO_NUM_27     // GPIO
+    #define M5_BUS_22               GPIO_NUM_19     // GPIO
+    #define M5_BUS_23               GPIO_NUM_2      // I2S_OUT
+    #define M5_BUS_24               GPIO_NUM_0      // I2S_LRCLK
+    #define M5_BUS_26               GPIO_NUM_34     // PDM_DAT
+    // 25, 27, 29 = HPWR
+    // 26 = 
+    // 28 = 5V
+    // 30 = BAT
+#endif
+
+#ifdef M5STACK_CORES3
+    // 1, 3, 5 = GND
+    #define M5_BUS_2                GPIO_NUM_10    // ADC
+    #define M5_BUS_4                GPIO_NUM_8     // ADC
+    // 6 = RESET
+    #define M5_BUS_7                GPIO_NUM_37    // SPI_MOSI
+    #define M5_BUS_8                GPIO_NUM_5     // AUDIO_L / DAC
+    #define M5_BUS_9                GPIO_NUM_35    // SPI_MISO
+    #define M5_BUS_10               GPIO_NUM_9     // AUDIO_R / DAC
+    #define M5_BUS_11               GPIO_NUM_36    // SPI_SCK
+    // 12 = 3.3V
+    #define M5_BUS_13               GPIO_NUM_44    // RXD0
+    #define M5_BUS_14               GPIO_NUM_43    // TXD0
+    #define M5_BUS_15               GPIO_NUM_18    // RXD2
+    #define M5_BUS_16               GPIO_NUM_17    // TXD2
+    #define M5_BUS_17               GPIO_NUM_12    // intSDA
+    #define M5_BUS_18               GPIO_NUM_11    // intSCL
+    #define M5_BUS_19               GPIO_NUM_2     // PA_SDA
+    #define M5_BUS_20               GPIO_NUM_1     // PA_SCL
+    #define M5_BUS_21               GPIO_NUM_6     // GPIO
+    #define M5_BUS_22               GPIO_NUM_7     // GPIO
+    #define M5_BUS_23               GPIO_NUM_13    // I2S_OUT
+    #define M5_BUS_24               GPIO_NUM_0     // I2S_LRCLK
+    #define M5_BUS_26               GPIO_NUM_14    // PDM_DAT
+    // 25, 27, 29 = HPWR
+    // 26 = 
+    // 28 = 5V
+    // 30 = BAT
+#endif
+
+/******** Common: Busnames to Pin number *******************************************************/
+#define M5_BUS_ADC1             M5_BUS_2
+#define M5_BUS_ADC2             M5_BUS_4
+#define M5_BUS_SPI_MOSI         M5_BUS_7
+#define M5_BUS_DAC0             M5_BUS_8
+#define M5_AUDIO_L              M5_BUS_8
+#define M5_BUS_SPI_MISO         M5_BUS_9
+#define M5_BUS_DAC1             M5_BUS_10
+#define M5_AUDIO_R              M5_BUS_10
+#define M5_BUS_SPI_SCK          M5_BUS_11
+#define M5_BUS_IO0              M5_BUS_13
+#define M5_BUS_RXD0             M5_BUS_13 
+#define M5_BUS_IO1              M5_BUS_14
+#define M5_BUS_TXD0             M5_BUS_14
+#define M5_BUS_IO2              M5_BUS_15
+#define M5_BUS_RXD2             M5_BUS_15
+#define M5_BUS_IO3              M5_BUS_16
+#define M5_BUS_TXD2             M5_BUS_16
+#define M5_BUS_PC_TX            M5_BUS_16
+#define M5_BUS_INT_SDA          M5_BUS_17
+#define M5_BUS_INT_SCL          M5_BUS_18
+#define M5_BUS_IO6              M5_BUS_19
+#define M5_BUS_IO7              M5_BUS_20
+#define M5_BUS_IO8              M5_BUS_21
+#define M5_BUS_IIS_SCLK         M5_BUS_21
+#define M5_BUS_IO9              M5_BUS_22
+#define M5_BUS_IIS_WS           M5_BUS_22
+#define M5_BUS_IO10             M5_BUS_23
+#define M5_BUS_IIS_OUT          M5_BUS_23
+#define M5_BUS_IO11             M5_BUS_24
+#define M5_BUS_IIS_MCLK         M5_BUS_24
+#define M5_BUS_IIS_IN           M5_BUS_26
+#define M5_BUS_ADC0             M5_BUS_26
+
+/******** Internal/Special/External Connections *******************************************************/
+#ifdef  M5STACK_CORE
+    // Additional BUS names
+    #define M5_BUS_RXD1             M5_BUS_13 // Core
+    #define M5_BUS_TXD1             M5_BUS_14 // Core
+
+    // Internal connections
+    // IO 28, 29, 30, 31 = RAMROM
+    // Program UART
+    // #define M5_U0TXD                M5_BUS_TXD1
+    // #define M5_U0RXD                M5_BUS_RXD1
+
+    // Internal:: Flash
+    #define M5_FLASH_SCLK           GPIO_NUM_6
+    #define M5_FLASH_SO             GPIO_NUM_7
+    #define M5_FLASH_SI             GPIO_NUM_8
+    #define M5_FLASH_HOLD           GPIO_NUM_9
+    #define M5_FLASH_WP             GPIO_NUM_10
+    #define M5_FLASH_CS             GPIO_NUM_11
+
+    // Internal: SD/TF
+    #define M5_SD_CS                GPIO_NUM_4
+    #define M5_SD_CLK               GPIO_NUM_18
+    #define M5_SD_DO                GPIO_NUM_19
+    #define M5_SD_DI                GPIO_NUM_23
+
+    // Internal: SPK
+    #define M5_SPEAKER              GPIO_NUM_25
+
+    // Internal: Touch
+    #define M5_TOUCH_SCL            M5_BUS_INT_SCL
+    #define M5_TOUCH_SDA            M5_BUS_INT_SDA
+    #define M5_TOUCH_INT            GPIO_NUM_39
+
+    // Internal LCD
+    #define M5_LCD_CS               GPIO_NUM_14
+    #define M5_LCD_RS               GPIO_NUM_27
+    #define M5_LCD_BL               GPIO_NUM_32
+    #define M5_LCD_RST              GPIO_NUM_33
+    #define M5_LCD_SCK              M5_BUS_SPI_SCK
+    #define M5_LCD_MISO             M5_BUS_SPI_MISO
+    #define M5_LCD_MOSI             M5_BUS_SPI_MOSI
+
+    // Internal: Buttons
+    #define M5_BTN_A                GPIO_NUM_37
+    #define M5_BTN_B                GPIO_NUM_38
+    #define M5_BTN_C                GPIO_NUM_39
+
+    // I2C Addresses
+    #define M5_I2C_ADDR_IP5306      (0x75) // Power Mgmt
+#endif
+
+#ifdef M5STACK_CORE2
+    // Additional BUS names
+    #define M5_BUS_PA_SDA           M5_BUS_19 // Core2
+    #define M5_BUS_PA_SCL           M5_BUS_20 // Core2
+
+    // Internal:: Flash
+    #define M5_FLASH_SCLK           GPIO_NUM_6
+    #define M5_FLASH_SO             GPIO_NUM_7
+    #define M5_FLASH_SI             GPIO_NUM_8
+    #define M5_FLASH_HOLD           GPIO_NUM_9
+    #define M5_FLASH_WP             GPIO_NUM_10
+    #define M5_FLASH_CS             GPIO_NUM_11
+
+    // Internal: PSRAM
+    #define M5_PSRAM_SCLK           GPIO_NUM_17
+    #define M5_PSRAM_SIO0           GPIO_NUM_8
+    #define M5_PSRAM_SIO1           GPIO_NUM_7
+    #define M5_PSRAM_SIO2           GPIO_NUM_10
+    #define M5_PSRAM_SIO3           GPIO_NUM_9
+    #define M5_PSRAM_CS             GPIO_NUM_16
+
+    // Internal LCD
+    #define M5_LCD_CS               GPIO_NUM_5
+    #define M5_LCD_DC               GPIO_NUM_15
+    // #define M5_LCD_BL               AXP_DCDC3
+    // #define M5_LCD_RST              AXP_IO4
+    #define M5_LCD_SCK              M5_BUS_SPI_SCK
+    #define M5_LCD_MISO             M5_BUS_SPI_MISO
+    #define M5_LCD_MOSI             M5_BUS_SPI_MOSI
+
+    // Internal: Touch
+    #define M5_TOUCH_SCL            M5_BUS_INT_SCL
+    #define M5_TOUCH_SDA            M5_BUS_INT_SDA
+    #define M5_TOUCH_INT            GPIO_NUM_39
+
+    // Internal: SD/TF
+    #define M5_SD_CS                GPIO_NUM_4
+    #define M5_SD_CLK               M5_BUS_SPI_SCK  // G18
+    #define M5_SD_DI                M5_BUS_SPI_MOSI // G23
+    #define M5_SD_DO                M5_BUS_SPI_MISO // G38
+
+    // Internal: Speaker
+    #define M5_SPEAKER_LRCK         GPIO_NUM_0
+    #define M5_SPEAKER_BCLK         GPIO_NUM_12
+    #define M5_SPEAKER_DATA         GPIO_NUM_2
+    // #define M5_SPEAKER_EN        AXP_IO2
+
+    // Add-on: MIC
+    #define M5_MIC_CLK              M5_BUS_24 // GPIO_NUM_0
+    #define M5_MIC_DAT              M5_BUS_26 // GPIO_NUM_34
+
+    // Add-on: MPU-6886
+    #define M5_IMU_SDA              M5_BUS_INT_SDA
+    #define M5_IMU_SCL              M5_BUS_INT_SCL
+
+    // Internal: RTC/AXP
+    #define M5_RTC_SDA              M5_BUS_INT_SDA
+    #define M5_RTC_SCL              M5_BUS_INT_SCL
+
+    // External: PORT A
+    #define M5_PORTA_1              M5_BUS_PA_SDA
+    #define M5_PORTA_2              M5_BUS_PA_SCL
+
+    // I2C Addresses
+    #define M5_I2C_ADDR_MPU6886     (0x68) // IMU
+    #define M5_I2C_ADDR_AXP192      (0x23) // Power Mgmt
+    #define M5_I2C_ADDR_BM8563      (0x51) // RTC
+    #define M5_I2C_ADDR_FT6336      (0x38) // Touch
+#endif
+
+#ifdef M5STACK_CORES3
+    // Additional BUS names
+    #define M5_BUS_PB_IN            M5_BUS_4 // CoreS3
+    #define M5_BUS_PB_OUT           M5_BUS_10 // CoreS3
+    #define M5_BUS_RXD0             M5_BUS_13 // CoreS3
+    #define M5_BUS_TXD0             M5_BUS_14 // CoreS3
+    #define M5_BUS_PC_RX            M5_BUS_15 // CoreS3
+    #define M5_BUS_PA_SDA           M5_BUS_19 // Core2, CoreS3
+    #define M5_BUS_PA_SCL           M5_BUS_20 // Core2, CoreS3
+
+    // // Internal:: Flash
+    #define M5_FLASH_CS1            GPIO_NUM_26
+    #define M5_FLASH_HD             GPIO_NUM_27
+    #define M5_FLASH_WP             GPIO_NUM_28
+    #define M5_FLASH_CS0            GPIO_NUM_29
+    #define M5_FLASH_CLK            GPIO_NUM_30
+    #define M5_FLASH_Q              GPIO_NUM_31
+    #define M5_FLASH_D              GPIO_NUM_32
+
+    // // Internal: PSRAM
+    // #define M5_PSRAM_SCLK           GPIO_NUM_
+    // #define M5_PSRAM_SIO0           GPIO_NUM_
+    // #define M5_PSRAM_SIO1           GPIO_NUM_
+    // #define M5_PSRAM_SIO2           GPIO_NUM_
+    // #define M5_PSRAM_SIO3           GPIO_NUM_
+    // #define M5_PSRAM_CS             GPIO_NUM_
+
+    // Internal USB/OTG
+    #define M5_USB_DN               GPIO_NUM_19
+    #define M5_USB_DP               GPIO_NUM_20
+    
+    // Internal LCD: ILI9341
+    #define M5_LCD_CS               GPIO_NUM_3
+    #define M5_LCD_DC               GPIO_NUM_35
+    // #define M5_LCD_BL               AXP2101_DLDO1
+    // #define M5_LCD_RST              AW9523B_P1_1
+    // #define M5_LCD_PWR              AXP2101_LX1
+    #define M5_LCD_SCK              M5_BUS_SPI_SCK
+    // #define M5_LCD_MISO             N.C.
+    #define M5_LCD_MOSI             M5_BUS_SPI_MOSI
+
+    // Internal: Camera GC0308
+    #define M5_CAM_SDA              M5_BUS_INT_SDA
+    #define M5_CAM_SCL              M5_BUS_INT_SCL
+    // #define M5_CAM_RST              AW9523B_P1_0
+    #define M5_CAM_PCLK             GPIO_NUM_45
+    #define M5_CAM_VSYNC            GPIO_NUM_46
+    #define M5_CAM_HREF             GPIO_NUM_38
+    #define M5_CAM_D2               GPIO_NUM_39
+    #define M5_CAM_D3               GPIO_NUM_40
+    #define M5_CAM_D4               GPIO_NUM_41
+    #define M5_CAM_D5               GPIO_NUM_42
+    #define M5_CAM_D6               GPIO_NUM_15
+    #define M5_CAM_D7               GPIO_NUM_16
+    #define M5_CAM_D8               GPIO_NUM_48
+    #define M5_CAM_D9               GPIO_NUM_47
+
+    // Internal: Proximity Sensor LTR-553ALS-WA
+    #define M5_PROXIM_SDA           M5_BUS_INT_SDA
+    #define M5_PROXIM_SCL           M5_BUS_INT_SCL
+
+    // Internal: Touch FT6336U
+    #define M5_TOUCH_SCL            M5_BUS_INT_SCL
+    #define M5_TOUCH_SDA            M5_BUS_INT_SDA
+    #define M5_TOUCH_INT            GPIO_NUM_21 // via AW9523B_P1_2
+    // #define M5_TOUCH_RST            AW9523B_P0_0
+
+    // Internal: SD/TF
+    #define M5_SD_CS                GPIO_NUM_4
+    #define M5_SD_CLK               M5_BUS_SPI_SCK  // G36
+    #define M5_SD_DI                M5_BUS_SPI_MOSI // G37
+    #define M5_SD_DO                M5_BUS_SPI_MISO // G35
+
+    // Internal: Speaker AW88298
+    #define M5_AW88298_SCL          M5_BUS_INT_SCL
+    #define M5_AW88298_SDA          M5_BUS_INT_SDA
+    #define M5_SPEAKER_SCLK         M5_BUS_IIS_SCLK
+    #define M5_SPEAKER_WS           M5_BUS_IIS_WS
+    #define M5_SPEAKER_SDATA        M5_BUS_IIS_OUT // DAT_I
+    #define M5_SPEAKER_MCLK         M5_BUS_IIS_MCLK
+
+    // Internal Microphone ES7210
+    #define M5_ES7210_SCL           M5_BUS_INT_SCL
+    #define M5_ES7210_SDA           M5_BUS_INT_SDA
+    #define M5_MIC_SCLK             M5_BUS_IIS_SCLK
+    #define M5_MIC_LRCK             M5_BUS_IIS_WS
+    #define M5_MIC_SDATA            M5_BUS_IIS_IN // DAT_O
+    #define M5_MIC_MCLK             M5_BUS_IIS_MCLK
+
+    // // Internal: RTC/AXP
+    #define M5_RTC_SDA              M5_BUS_INT_SDA
+    #define M5_RTC_SCL              M5_BUS_INT_SCL
+
+    // External: PORT A: Red, I2C
+    #define M5_PORTA_1              M5_BUS_PA_SDA 
+    #define M5_PORTA_2              M5_BUS_PA_SCL 
+
+    // Add-on: PORT B, Black, GPIO
+    #define M5_PORTB_1              M5_BUS_PB_IN
+    #define M5_PORTB_2              M5_BUS_PB_OUT
+
+    // Add-on: PORT C: Blue, UART
+    #define M5_PORTC_1              M5_BUS_PC_RX
+    #define M5_PORTC_2              M5_BUS_PC_TX
+
+    // I2C Addresses: INT_I2C G11/G12
+    #define M5_I2C_ADDR_GC0308      (0x21) // Camera
+    #define M5_I2C_ADDR_LTR553      (0x23) // Light Sensor
+    #define M5_I2C_ADDR_AXP2101     (0x34) // Power mgmt
+    #define M5_I2C_ADDR_AW88298     (0x36) // AMP
+    #define M5_I2C_ADDR_FT6336      (0x38) // Touch
+    #define M5_I2C_ADDR_ES7210      (0x40) // MIC ADC
+    #define M5_I2C_ADDR_BM8563      (0x51) // RTC
+    #define M5_I2C_ADDR_AW9523      (0x58) // IO-Expander
+    // #define M5_I2C_ADDR_MPU6886     (0x68) // IMU
+    #define M5_I2C_ADDR_BMI270      (0x69) // IMU
+    #define M5_I2C_ADDR_BMM150      (0x10) // Magneto
+#endif // M5STACK_CORES3
+
+// STEPMOTOR DRIVER V1.1 pins on MBUS
+#define M5_STEPMOTORDRIVER_DIR_X    M5_BUS_16   // S1:GPIO17 S2:GPIO14 S3:GPIO17 
+#define M5_STEPMOTORDRIVER_STP_X    M5_BUS_15   // S1:GPIO16 S2:GPIO13 S3:GPIO16 
+#define M5_STEPMOTORDRIVER_DIR_Y    M5_BUS_22   // S1:GPIO13 S2:GPIO19 S3:GPIO7 
+#define M5_STEPMOTORDRIVER_STP_Y    M5_BUS_21   // S1:GPIO12 S2:GPIO27 S3:GPIO6
+#define M5_STEPMOTORDRIVER_DIR_Z    M5_BUS_24   // S1:GPIO0  S2:GPIO0  S3:GPIO0
+#define M5_STEPMOTORDRIVER_STP_Z    M5_BUS_23   // S1:GPIO15 S2:GPIO2  S3:GPIO13
+#define M5_STEPMOTORDRIVER_SDA      M5_BUS_17   // S1:GPIO21 S2:GPIO   S3:GPIO12
+#define M5_STEPMOTORDRIVER_SCL      M5_BUS_18   // S1:GPIO22 S2:GPIO   S3:GPIO11
+// --- End m5stack-data.h ---
+
+// --- Begin receiver.h ---
+#ifndef RECEIVER_H
+#define RECEIVER_H
+
+void receiver_setup();
+void receiver_loop();
+
+#endif // RECEIVER_H// --- End receiver.h ---
+
+// --- Begin bloch.cpp ---
+
+
+
+// local functions
+using namespace Eigen;
+Eigen::Matrix3d generateMotorMatrix(double wheel_angle_degrees, double z_rotation_degrees);
+void printMatrix3d(Eigen::Matrix3d &m, const char *name = "M");
+
+BlochSphere::BlochSphere() : _motor1(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_X, M5_STEPMOTORDRIVER_DIR_X),
+                             _motor2(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_Y, M5_STEPMOTORDRIVER_DIR_Y),
+                             _motor3(AccelStepper::DRIVER, M5_STEPMOTORDRIVER_STP_Z, M5_STEPMOTORDRIVER_DIR_Z) {
+                             };
+
+BlochSphere::~BlochSphere() {
+
+};
+
+bool BlochSphere::begin()
+{
+    // FIXME: Using Wire1 (configured on pins of Wire) because LovyanGFX configures the touch controller on port 1 (Wire1)
+    //  with these pins. See https://github.com/lovyan03/LovyanGFX/issues/628
+    //  This is a workaround for now. Fixing Lgfx works as well (set port = 0 in LGFX_AutoDetect_ESP32_all.hpp)
+
+    Wire1.begin(M5_STEPMOTORDRIVER_SDA, M5_STEPMOTORDRIVER_SCL, 400000);
+    if (!_driver.init(Wire1))
+    {
+        WARNING("_driver returned false. error?");
+    };
+
+
+    // Reset Fault status
+    // _driver.setMicrostepResolution(Module_Stepmotor::kMicrosteps8);
+    _motor1.enableOutputs();
+    _motor2.enableOutputs();
+    _motor3.enableOutputs();
+
+    uint8_t status;
+    _driver.getFaultStatus(&status);
+    DBG("FaultStatus: 0x%0x", status); // probably 7, ok?
+
+    // Generate Movement Matrix
+    _motormatrix = generateMotorMatrix(MOTOR_ANGLE_DEG, BASE_Z_ROTATION_DEG);
+    printMatrix3d(_motormatrix, "MotorMatrix");
+
+    _state = RESET;
+
+    return true;
+};
+
+bool BlochSphere::rotate(const Vector3d axis, const int steps)
+{
+    DBG("Queue move");
+    _queue.push(_motormatrix * axis.normalized() * steps);
+    return true;
+};
+
+bool BlochSphere::permute(const permute_t permute)
+{
+    /*
+        X = (1, 0, 0) * 180deg
+        Y = (0, 1, 0) * 180deg
+        Z = (0, 0, 1) * 180deg
+        H = (sqrt(*2)/2, 0, sqrt(2)/2) * 180deg
+        s = (0, 0, 1) * 90deg
+        S = (0, 0, 1) * -90deg
+        t = (0, 0, 1) * 45deg
+        T = (0, 0, 1) * -45deg
+    */
+    switch (permute)
+    {
+    case PERMUTE_X:
+        rotate(Vector3d(1, 0, 0), STEPS_PER_ROTATION / 2);
+        return true;
+    case PERMUTE_Y:
+        rotate(Vector3d(0, 1, 0), STEPS_PER_ROTATION / 2);
+        return true;
+    case PERMUTE_Z:
+        rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION / 2);
+        return true;
+    case PERMUTE_H:
+        rotate(Vector3d(0.707, 0, 0.707), STEPS_PER_ROTATION / 2);
+        return true;
+    case PERMUTE_S:
+        rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION / 4);
+        return true;
+    case PERMUTE_NS:
+        rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION / 4);
+        return true;
+    case PERMUTE_T:
+        rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION / 8);
+        return true;
+    case PERMUTE_NT:
+        rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION / 8);
+        return true;
+    default:
+        return false;
+    };
+};
+
+void BlochSphere::loop()
+{
+    Vector3d move;
+    float max_move;
+
+    static state_t _prvstate = _NONE;
+    if (_state != _prvstate)
+    {
+        DBG("%lu: State %s -> %s", millis(), StateNames[_prvstate], StateNames[_state]);
+        _prvstate = _state;
+    };
+
+    switch (_state)
+    {
+    case _NONE:
+    case RESET:
+        _driver.enableMotor(0);
+        _driver.resetMotor(0, 0);
+        _driver.resetMotor(1, 0);
+        _driver.resetMotor(2, 0);
+
+        _state = IDLE;
+        break;
+
+    case IDLE:
+        if (!_queue.empty())
+        {
+            _state = MOVE_START;
+            break;
+        };
+        return;
+
+    case MOVE_START:
+        // Test for next move or go IDLE
+        if (_queue.empty())
+        {
+            _state = IDLE;
+            break;
+        };
+
+        // pop move from queue
+        move = _queue.front();
+        _queue.pop();
+
+        // Start executing move
+        _driver.enableMotor(1);
+        // delay(30);
+
+        // FIXME: instead of max() use the norm of the vector here and for speed
+        //   or maybe the inner product of the update for the axis
+        max_move = max(max(abs(move[0]), abs(move[1])), abs(move[2]));
+
+        _motor1.setAcceleration(move[2] / max_move * MOTORS_MAX_ACCEL);
+        _motor2.setAcceleration(move[1] / max_move * MOTORS_MAX_ACCEL);
+        _motor3.setAcceleration(move[0] / max_move * MOTORS_MAX_ACCEL);
+        // DBG("ACCEL: %f %f %f",
+        //     move[2] / max_move * MOTORS_MAX_ACCEL,
+        //     move[1] / max_move * MOTORS_MAX_ACCEL,
+        //     move[0] / max_move * MOTORS_MAX_ACCEL
+        // );
+
+        _motor1.setMaxSpeed(move[2] / max_move * MOTORS_MAX_SPEED);
+        _motor2.setMaxSpeed(move[1] / max_move * MOTORS_MAX_SPEED);
+        _motor3.setMaxSpeed(move[0] / max_move * MOTORS_MAX_SPEED);
+        // DBG("SPEED: %f %f %f",
+        //     move[2] / max_move * MOTORS_MAX_SPEED,
+        //     move[1] / max_move * MOTORS_MAX_SPEED,
+        //     move[0] / max_move * MOTORS_MAX_SPEED
+        // );
+
+        DBG("%lu: Move (%.0f, %.0f, %.0f) (max=%.0f)", millis(), move[0], move[1], move[2], max_move);
+        _motor1.move(move[2]);
+        _motor2.move(move[1]);
+        _motor3.move(move[0]);
+
+        _state = MOVE_BUSY;
+        break;
+
+    case MOVE_BUSY:
+        // Wait until all motors have finished
+        _motor1.run();
+        _motor2.run();
+        _motor3.run();
+
+        if (_motor1.distanceToGo())
+            break;
+        if (_motor2.distanceToGo())
+            break;
+        if (_motor3.distanceToGo())
+            break;
+
+        _state = MOVE_END;
+        break;
+
+    case MOVE_END:
+        _driver.enableMotor(0);
+
+        // Start next or go idle
+        if (_queue.empty())
+            _state = IDLE;
+        else
+            _state = MOVE_START;
+        break;
+    }; // while switch
+};
+
+Matrix3d generateMotorMatrix(double /*mount_angle*/ wa_deg, double z_rot_deg)
+{
+    // function compute() {
+    //     var wheel_angle_degrees = parseFloat(document.getElementById('angle').value)
+    //     var wheel_angle = wheel_angle_degrees / 180 * Math.PI
+    double wheel_angle = wa_deg * PI / 180;
+    double z_rot = z_rot_deg * PI / 180;
+    // var wheel_vectors = [0., 2.*Math.PI/3, 4.*Math.PI/3].map((phi) => [Math.sin(wheel_angle) * Math.cos(phi), Math.sin(wheel_angle) * Math.sin(phi), -Math.cos(wheel_angle)])
+    // double wheel_vectors =
+    //   map [0, 2/3*PI, 4/3*PI] onto [sin(wheel_angle)*cos(phi),
+    //                                 sin(wheel_angle)*sin(phi),
+    //                                 -cos(wheel_angle)]
+    double phi;
+    // Vector3d wheel_vector[3]; // Wheel direction seen from center of ball
+    Matrix3d wheel_vector;
+    phi = 0 + z_rot;
+    wheel_vector.row(0) << sin(wheel_angle) * cos(phi), sin(wheel_angle) * sin(phi), -cos(wheel_angle);
+    phi = 2 * PI / 3 + z_rot;
+    wheel_vector.row(1) << sin(wheel_angle) * cos(phi), sin(wheel_angle) * sin(phi), -cos(wheel_angle);
+    phi = 4 * PI / 3 + z_rot;
+    wheel_vector.row(2) << sin(wheel_angle) * cos(phi), sin(wheel_angle) * sin(phi), -cos(wheel_angle);
+
+    // var wheel_normal_vectors =
+    // [0., 2.*Math.PI/3, 4.*Math.PI/3].map((phi) =>
+    //      [Math.cos(wheel_angle) * Math.cos(phi),
+    //       Math.cos(wheel_angle) * Math.sin(phi),
+    //       Math.sin(wheel_angle)])
+    //          .map((x) => [ .. ] // Normalize
+    Matrix3d wheel_normal;
+    phi = 0 + z_rot;
+    wheel_normal.row(0) << cos(wheel_angle) * cos(phi), cos(wheel_angle) * sin(phi), sin(wheel_angle);
+    phi = 2 * PI / 3 + z_rot;
+    wheel_normal.row(1) << cos(wheel_angle) * cos(phi), cos(wheel_angle) * sin(phi), sin(wheel_angle);
+    phi = 4 * PI / 3 + z_rot;
+    wheel_normal.row(2) << cos(wheel_angle) * cos(phi), cos(wheel_angle) * sin(phi), sin(wheel_angle);
+    // wheel_normal[0].normalize();
+    // wheel_normal[1].normalize();
+    // wheel_normal[2].normalize();
+
+    // var wheel_direction_vectors =
+    //  wheel_vectors.map((a,i) =>
+    // [a[1] * wheel_normal_vectors[i][2] - a[2] * wheel_normal_vectors[i][1],   -> a_y*n_z-a_z*n_y
+    //  a[2] * wheel_normal_vectors[i][0] - a[0] * wheel_normal_vectors[i][2],
+    //  a[0] * wheel_normal_vectors[i][1] - a[1] * wheel_normal_vectors[i][0]])
+    //      .map((x) => [ .. ] // Normalize
+    Matrix3d wheel_dir;
+    wheel_dir.row(0) << wheel_vector.row(0).cross(wheel_normal.row(0));
+    wheel_dir.row(1) << wheel_vector.row(1).cross(wheel_normal.row(1));
+    wheel_dir.row(2) << wheel_vector.row(2).cross(wheel_normal.row(2));
+
+    //     var coeff_matrix = wheel_vectors.map((a,i) =>
+    // [a[1] * wheel_direction_vectors[i][2] - a[2] * wheel_direction_vectors[i][1],
+    //  a[2] * wheel_direction_vectors[i][0] - a[0] * wheel_direction_vectors[i][2],
+    //  a[0] * wheel_direction_vectors[i][1] - a[1] * wheel_direction_vectors[i][0]])
+    Matrix3d wheel_motion;
+    wheel_motion.row(0) = wheel_vector.row(0).cross(wheel_dir.row(0)).normalized();
+    wheel_motion.row(1) = wheel_vector.row(1).cross(wheel_dir.row(1)).normalized();
+    wheel_motion.row(2) = wheel_vector.row(2).cross(wheel_dir.row(2)).normalized();
+
+    //     coeff_matrix = coeff_matrix.map((x) => [-x[0], x[1], -x[2]])
+    Matrix3d m;
+    m << -wheel_motion(0, 0), wheel_motion(0, 1), -wheel_motion(0, 2),
+        -wheel_motion(1, 0), wheel_motion(1, 1), -wheel_motion(1, 2),
+        -wheel_motion(2, 0), wheel_motion(2, 1), -wheel_motion(2, 2);
+
+    return m;
+};
+
+void printMatrix3d(Matrix3d &m, const char *name)
+{
+    Serial.printf(" %s = ", name);
+    for (int r = 0; r < 3; r++)
+    {
+        Serial.printf("\t%0.8f %0.8f %0.8f\n", m(r, 0), m(r, 1), m(r, 2));
+    };
+};
+// --- End bloch.cpp ---
+
+// --- Begin gui.cpp ---
+
+
+extern BlochSphere bloch; // main.cpp
+
+// GUI
+lv_obj_t *screen;
+lv_obj_t *btnX, *btnY, *btnZ, *btnH;
+lv_obj_t *lblX, *lblY, *lblZ, *lblH;
+static void btnX_event_handler(lv_event_t * e);
+static void btnY_event_handler(lv_event_t * e);
+static void btnZ_event_handler(lv_event_t * e);
+static void btnH_event_handler(lv_event_t * e);
+
+void gui_begin()
+{
+	// init hw drivers & lvgl
+	lgfx_init();
+    lvgl_init();
+
+	// create (empty) screen
+    screen = lv_obj_create(NULL);
+    lv_obj_set_style_pad_all(screen, 0, 0);
+    lv_obj_set_style_border_width(screen, 0, 0);
+    lv_obj_set_style_radius(screen, 0, 0);
+
+	// Add buttons
+    const int H = DISPLAY_HEIGHT/2 - 5;
+    const int W = DISPLAY_WIDTH/2 - 5;
+    lv_obj_t *btnX = lv_btn_create(screen);
+        lv_obj_add_event_cb(btnX, btnX_event_handler, LV_EVENT_ALL, NULL);
+        lv_obj_set_size(btnX, W, H);
+        lv_obj_align(btnX, LV_ALIGN_TOP_LEFT, 2, 2);
+    lv_obj_t *btnY = lv_btn_create(screen);
+        lv_obj_add_event_cb(btnY, btnY_event_handler, LV_EVENT_ALL, NULL);
+        lv_obj_set_size(btnY, W, H);
+        lv_obj_align(btnY, LV_ALIGN_TOP_RIGHT, -2, 2);
+    lv_obj_t *btnZ = lv_btn_create(screen);
+        lv_obj_add_event_cb(btnZ, btnZ_event_handler, LV_EVENT_ALL, NULL);
+        lv_obj_set_size(btnZ, W, H);
+        lv_obj_align(btnZ, LV_ALIGN_BOTTOM_LEFT, 2, -2);
+    lv_obj_t *btnH = lv_btn_create(screen);
+        lv_obj_add_event_cb(btnH, btnH_event_handler, LV_EVENT_ALL, NULL);
+        lv_obj_set_size(btnH, W, H);
+        lv_obj_align(btnH, LV_ALIGN_BOTTOM_RIGHT, -2, -2);
+        
+    lv_obj_t *lblX = lv_label_create(btnX);
+        lv_label_set_text(lblX, "XX");
+        lv_obj_center(lblX);
+    lv_obj_t *lblY = lv_label_create(btnY);
+        lv_label_set_text(lblY, "YY");
+        lv_obj_center(lblY);
+    lv_obj_t *lblZ = lv_label_create(btnZ);
+        lv_label_set_text(lblZ, "Z");
+        lv_obj_center(lblZ);
+    lv_obj_t *lblH = lv_label_create(btnH);
+        lv_label_set_text(lblH, "H");
+        lv_obj_center(lblH);
+
+	// load screen
+    lv_scr_load_anim(screen, LV_SCR_LOAD_ANIM_FADE_ON, 200, 0, false);
+
+	return;
+};
+
+void gui_loop()
+{
+	time_t now = millis();
+    static time_t prv_tick = 0;
+	if(now - prv_tick > (1000/DISPLAY_MAXFPS))
+	{
+    	lv_tick_inc(now - prv_tick);
+    	prv_tick = now;
+	    lv_timer_handler();
+	};
+};
+
+static void btnX_event_handler(lv_event_t * e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    if(code == LV_EVENT_CLICKED)
+    {
+        bloch.rotate(Vector3d(1, 0, 0), STEPS_PER_ROTATION * 0.5);
+        return;
+    };
+};
+static void btnY_event_handler(lv_event_t * e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    if(code == LV_EVENT_CLICKED)
+    {
+        bloch.rotate(Vector3d(0, 1, 0), STEPS_PER_ROTATION * 0.5);
+        return;
+    };
+};
+static void btnZ_event_handler(lv_event_t * e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    if(code == LV_EVENT_CLICKED)
+    {
+        bloch.rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION * 0.5);
+        return;
+    };
+};
+static void btnH_event_handler(lv_event_t * e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    if(code == LV_EVENT_CLICKED)
+    {
+        bloch.rotate(Vector3d(0.707, 0, 0.707), STEPS_PER_ROTATION * 0.5);
+        return;
+    };
+};
+
+// --- End gui.cpp ---
+
+// --- Begin lgfx.cpp ---
+
+
+
+// Draw buffer(s)
+#define LV_BUF_SIZE					(DISPLAY_HEIGHT*DISPLAY_WIDTH/10)
+lv_disp_draw_buf_t  	_lv_draw_buf;
+lv_color_t*             _lv_color_buf1 = nullptr; 
+lv_color_t*             _lv_color_buf2 = nullptr;
+
+// Display driver
+lv_disp_drv_t 		    _lv_display_drv;        /*Descriptor of a display driver*/
+static void lv_disp_cb(lv_disp_drv_t*, const lv_area_t*, lv_color_t*);
+
+lv_indev_drv_t 			_lv_touch_drv;           /*Descriptor of a input device driver*/
+static void lv_touchpad_cb(lv_indev_drv_t *, lv_indev_data_t *);
+
+// M5Stack has Lovyan Auto-detect, apparently
+LGFX _lgfx;
+
+void lgfx_init()
+{
+    _lgfx.init();
+    _lgfx.setRotation(1);
+    _lgfx.setColorDepth(24);
+
+	_lgfx.fillScreen(_lgfx.color888(255, 128, 64));
+};
+
+#if LV_USE_LOG
+void serial_log_cb(const char* line)
+{
+    Serial.print(line);
+};
+#endif
+
+void lvgl_init()
+{
+    _lv_color_buf1 = (lv_color_t*) heap_caps_malloc(LV_BUF_SIZE * sizeof(lv_color_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+    if(!_lv_color_buf1)
+    {
+        // lv_color_t 			    _lv_color_buf1[LV_BUF_SIZE];
+    };
+    _lv_color_buf2 = nullptr;
+#ifdef LFGX_DOUBLEBUF
+    _lv_color_buf2 = (lv_color_t*) heap_caps_malloc(LV_BUF_SIZE * sizeof(lv_color_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+    if(!_lv_color_buf2)
+    {
+        // lv_color_t 			    _lv_color_buf2[LV_BUF_SIZE];
+    };
+#endif
+
+    lv_init();
+
+#if LV_USE_LOG
+    lv_log_register_print_cb(serial_log_cb);
+#endif
+
+    lv_disp_draw_buf_init(&_lv_draw_buf, _lv_color_buf1, _lv_color_buf2, LV_BUF_SIZE);
+
+    lv_disp_drv_init(&_lv_display_drv);          /*Basic initialization*/
+    _lv_display_drv.flush_cb = lv_disp_cb;    /*Set your driver function*/
+    _lv_display_drv.draw_buf = &_lv_draw_buf;        /*Assign the buffer to the display*/
+    _lv_display_drv.hor_res = DISPLAY_WIDTH;   /*Set the horizontal resolution of the display*/
+    _lv_display_drv.ver_res = DISPLAY_HEIGHT;   /*Set the vertical resolution of the display*/
+    lv_disp_drv_register(&_lv_display_drv);      /*Finally register the driver*/
+
+    lv_indev_drv_init(&_lv_touch_drv);             /*Basic initialization*/
+    _lv_touch_drv.type = LV_INDEV_TYPE_POINTER;    /*Touch pad is a pointer-like device*/
+    _lv_touch_drv.read_cb = lv_touchpad_cb;      /*Set your driver function*/
+    lv_indev_drv_register(&_lv_touch_drv);         /*Finally register the driver*/
+};
+
+static void lv_disp_cb(lv_disp_drv_t* disp, const lv_area_t* area, lv_color_t* color_p)
+{
+    uint32_t w = ( area->x2 - area->x1 + 1 );
+    uint32_t h = ( area->y2 - area->y1 + 1 );
+
+    _lgfx.startWrite();
+    _lgfx.pushImageDMA(area->x1, area->y1, w, h, (lgfx::rgb565_t *)&color_p->full);
+    _lgfx.endWrite();
+
+    lv_disp_flush_ready( disp );
+};
+
+static void lv_touchpad_cb(lv_indev_drv_t * indev, lv_indev_data_t * data)
+{
+    uint16_t touchX, touchY;
+    
+    if(!_lgfx.getTouch( &touchX, &touchY))
+    {
+        data->state = LV_INDEV_STATE_RELEASED;
+        return;
+    };
+    data->state = LV_INDEV_STATE_PRESSED;
+    data->point.x = touchX;
+    data->point.y = touchY;
+
+    // Serial.printf("Touch = (%d, %d)\n", touchX, touchY);
+};
+// --- End lgfx.cpp ---
+
+// --- Begin main.cpp ---
+
+
+
+BlochSphere bloch;
+
+using namespace Eigen;
+
+void setup()
+{
+    Serial.begin(115200);
+    // Wait until serial is enumerated
+    Serial.printf("Serial\n");
+    // USBSerial.printf("USBSerial");
+
+    Serial.printf("receiver_setup\n");
+
+    receiver_setup();
+
+    Serial.printf("gui_begin\n");
+
+    gui_begin();
+
+    Serial.printf("bloch.begin\n");
+
+    bloch.begin();
+
+    Serial.printf("initial rotate\n");
+
+    bloch.rotate(Vector3d(0, 0, 1), STEPS_PER_ROTATION);
+
+    DBG("Setup done.");
+};
+
+void loop()
+{
+    gui_loop();
+    receiver_loop();
+
+    bloch.loop();
+};
+// --- End main.cpp ---
+
+// --- Begin receiver_loop.cpp ---
+
+
+extern BlochSphere bloch; // main.cpp
+
+
+namespace
+{
+    BLEServer *pServer = nullptr;
+    BLECharacteristic *pTxCharacteristic = nullptr;
+    bool deviceConnected = false;
+    bool oldDeviceConnected = false;
+    String bleBuffer = ""; // Stores incoming text
+
+#define SERVICE_UUID "6E400001-B5A3-F393-E0A9-E50E24DCCA9E" // UART service UUID
+#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+
+    // Callback for when the phone connects/disconnects
+    class MyServerCallbacks : public BLEServerCallbacks
+    {
+        void onConnect(BLEServer *pServer) { deviceConnected = true; };
+        void onDisconnect(BLEServer *pServer) { deviceConnected = false; }
+    };
+
+    // Callback for when the phone sends data
+    class MyCallbacks : public BLECharacteristicCallbacks
+    {
+        void onWrite(BLECharacteristic *pCharacteristic)
+        {
+            String rxValue = pCharacteristic->getValue().c_str();
+            if (rxValue.length() > 0)
+            {
+                bleBuffer += rxValue; // Add incoming packets to our buffer
+            }
+        }
+    };
+
+} // namespace
+
+// --- NEW: Dependency-Free Quaternion Tracker ---
+struct QuatTracker
+{
+    double w = 1.0, x = 0.0, y = 0.0, z = 0.0;
+
+    void applyRotation(Vector3d axis, double turns)
+    {
+        // 1. Normalize the axis
+        double ax = axis[0], ay = axis[1], az = axis[2];
+        double axis_mag = sqrt(ax * ax + ay * ay + az * az);
+        if (axis_mag == 0)
+            return;
+        ax /= axis_mag;
+        ay /= axis_mag;
+        az /= axis_mag;
+
+        // 2. Convert to quaternion components
+        double angle = turns * 2.0 * PI;
+        double s = sin(angle / 2.0);
+        double qw = cos(angle / 2.0);
+        double qx = ax * s;
+        double qy = ay * s;
+        double qz = az * s;
+
+        // 3. Multiply current state by new rotation (global axis rotation)
+        double nw = qw * w - qx * x - qy * y - qz * z;
+        double nx = qw * x + qx * w + qy * z - qz * y;
+        double ny = qw * y - qx * z + qy * w + qz * x;
+        double nz = qw * z + qx * y - qy * x + qz * w;
+
+        // 4. Normalize and update state to prevent float drift
+        double mag = sqrt(nw * nw + nx * nx + ny * ny + nz * nz);
+        w = nw / mag;
+        x = nx / mag;
+        y = ny / mag;
+        z = nz / mag;
+    }
+
+    void calculateReset(Vector3d &outAxis, double &outTurns)
+    {
+        // Inverse quaternion (conjugate)
+        double inv_w = w, inv_x = -x, inv_y = -y, inv_z = -z;
+
+        // Clamp to avoid NaN errors from acos()
+        if (inv_w > 1.0)
+            inv_w = 1.0;
+        if (inv_w < -1.0)
+            inv_w = -1.0;
+
+        double angle = 2.0 * acos(inv_w);
+        double s = sqrt(1.0 - inv_w * inv_w);
+
+        if (s < 0.001)
+        {
+            outAxis = Vector3d(1, 0, 0); // Arbitrary axis, 0 turns
+            outTurns = 0.0;
+        }
+        else
+        {
+            outAxis = Vector3d(inv_x / s, inv_y / s, inv_z / s);
+            outTurns = angle / (2.0 * PI);
+        }
+
+        // Enforce the shortest physical path (<= 180 degrees)
+        if (outTurns > 0.5)
+        {
+            outTurns = 1.0 - outTurns;
+            // Flip axis manually to avoid missing '-' operator overload errors
+            outAxis = Vector3d(-(inv_x / s), -(inv_y / s), -(inv_z / s));
+        }
+
+        // Reset the tracker to Identity
+        w = 1.0;
+        x = 0.0;
+        y = 0.0;
+        z = 0.0;
+    }
+};
+
+QuatTracker netRotation;
+
+// Helper function to execute a rotation AND track its state
+void executeRotation(Vector3d axis, double turns)
+{
+    bloch.rotate(axis, STEPS_PER_ROTATION * turns);
+    netRotation.applyRotation(axis, turns);
+}
+
+// Helper function to return to identity (0, 0, 1) in the shortest path
+void resetBloch()
+{
+    Vector3d resetAxis(1, 0, 0);
+    double resetTurns = 0.0;
+
+    netRotation.calculateReset(resetAxis, resetTurns);
+
+    if (resetTurns > 0.001)
+    {
+        bloch.rotate(resetAxis, STEPS_PER_ROTATION * resetTurns);
+    }
+}
+
+void receiver_setup()
+{
+    BLEDevice::init("M5Stack_Bloch_BLE");
+
+    pServer = BLEDevice::createServer();
+    pServer->setCallbacks(new MyServerCallbacks());
+
+    BLEService *pService = pServer->createService(SERVICE_UUID);
+
+    pTxCharacteristic = pService->createCharacteristic(
+        CHARACTERISTIC_UUID_TX,
+        BLECharacteristic::PROPERTY_NOTIFY);
+    pTxCharacteristic->addDescriptor(new BLE2902());
+
+    BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(
+        CHARACTERISTIC_UUID_RX,
+        BLECharacteristic::PROPERTY_WRITE);
+    pRxCharacteristic->setCallbacks(new MyCallbacks());
+
+    pService->start();
+    pServer->getAdvertising()->start();
+}
+
+// Updated these to use our new tracking wrapper
+void voorwaarts() { executeRotation(Vector3d(1, 0, 0), 0.5); }
+void achterwaarts() { executeRotation(Vector3d(1, 0, 0), -0.5); }
+void links() { executeRotation(Vector3d(0, 1, 0), 0.5); }
+void rechts() { executeRotation(Vector3d(0, 1, 0), -0.5); }
+void linksBoven() { executeRotation(Vector3d(0.707106, 0, 0.707106), 0.5); }
+void rechtsBoven() { executeRotation(Vector3d(0.707106, 0, 0.707106), -0.5); }
+void linksOnder() { executeRotation(Vector3d(0.707106, 0, -0.707106), 0.5); }
+void rechtsOnder() { executeRotation(Vector3d(0.707106, 0, -0.707106), -0.5); }
+
+void setLedRing(int r, int g, int b)
+{
+    // todo: implement
+}
+
+bool pulse = false;
+unsigned long pulseEnd = millis();
+
+void receiver_loop()
+{
+    // Handle disconnection
+    if (!deviceConnected && oldDeviceConnected)
+    {
+        delay(500);
+        pServer->startAdvertising();
+        oldDeviceConnected = deviceConnected;
+    }
+
+    // Handle connection
+    if (deviceConnected && !oldDeviceConnected)
+    {
+        oldDeviceConnected = deviceConnected;
+    }
+
+    int newlineIndex = bleBuffer.indexOf('\n');
+
+    if (newlineIndex != -1)
+    {
+        String commando = bleBuffer.substring(0, newlineIndex);
+        bleBuffer = bleBuffer.substring(newlineIndex + 1);
+        commando.trim();
+
+        String strs[20];
+        int StringCount = 0;
+        while (commando.length() > 0)
+        {
+            int index = commando.indexOf(',');
+            if (index == -1)
+            {
+                strs[StringCount++] = commando;
+                break;
+            }
+            else
+            {
+                strs[StringCount++] = commando.substring(0, index);
+                commando = commando.substring(index + 1);
+            }
+        }
+
+        for (int i = 0; i < StringCount; i++)
+        {
+            String task = strs[i];
+
+            if (task == "voorwaarts")
+                voorwaarts();
+            else if (task == "achterwaarts")
+                achterwaarts();
+            else if (task == "links")
+                links();
+            else if (task == "rechts")
+                rechts();
+            else if (task == "linksboven")
+                linksBoven();
+            else if (task == "rechtsboven")
+                rechtsBoven();
+            else if (task == "linksonder")
+                linksOnder();
+
+            // Replaced raw bloch.rotate() with executeRotation() for accurate tracking
+            else if (task == "Xgate")
+                executeRotation(Vector3d(1, 0, 0), 0.5);
+            else if (task == "Ygate")
+                executeRotation(Vector3d(0, 1, 0), 0.5);
+            else if (task == "Zgate")
+                executeRotation(Vector3d(0, 0, 1), 0.5);
+            else if (task == "Hgate")
+                executeRotation(Vector3d(0.707106, 0, 0.707106), 0.5);
+            else if (task == "Sgate")
+                executeRotation(Vector3d(0, 0, 1), 0.25);
+            else if (task == "Tgate")
+                executeRotation(Vector3d(0, 0, 1), 0.125);
+            else if (task == "S+gate")
+                executeRotation(Vector3d(0, 0, 1), -0.25);
+            else if (task == "T+gate")
+                executeRotation(Vector3d(0, 0, 1), -0.125);
+
+            // --- NEW: Reset Command ---
+            else if (task == "reset")
+                resetBloch();
+
+            else if (task == "led")
+            {
+                setLedRing(strs[i + 1].toInt(), strs[i + 2].toInt(), strs[i + 3].toInt());
+                i += 3;
+            }
+            else if (task == "pulse")
+            {
+                setLedRing(strs[i + 1].toInt(), strs[i + 2].toInt(), strs[i + 3].toInt());
+                pulse = true;
+                pulseEnd = millis() + strs[i + 4].toInt();
+                i += 4;
+            }
+            else if (task == "delay")
+            {
+                delay(strs[i + 1].toInt());
+                i++;
+            }
+
+            if (deviceConnected)
+            {
+                task += "\n";
+                pTxCharacteristic->setValue(task.c_str());
+                pTxCharacteristic->notify();
+            }
+        }
+    }
+
+    if (pulse && millis() > pulseEnd)
+    {
+        pulse = false;
+        setLedRing(0, 0, 255);
+    }
+}// --- End receiver_loop.cpp ---
+
