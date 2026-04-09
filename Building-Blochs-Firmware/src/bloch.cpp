@@ -52,6 +52,16 @@ bool BlochSphere::begin()
     return true;
 };
 
+void BlochSphere::reset()
+{
+    _bloch_state = Vector3d(0, 0, 1);
+
+    MovementQueue_t empty;
+    _queue.swap(empty);
+
+    _state = RESET;
+}
+
 bool BlochSphere::rotate(const Vector3d axis, const int steps)
 {
     DBG("Queue move");

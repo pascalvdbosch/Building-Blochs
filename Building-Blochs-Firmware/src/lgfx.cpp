@@ -87,20 +87,6 @@ void lvgl_init()
     lv_indev_drv_register(&_lv_touch_drv);      /*Finally register the driver*/
 };
 
-bool lgfx_pop_swipe(swipe_direction_t *direction)
-{
-    if (_pending_swipe == SWIPE_NONE)
-    {
-        return false;
-    }
-
-    if (direction)
-    {
-        *direction = _pending_swipe;
-    }
-    _pending_swipe = SWIPE_NONE;
-    return true;
-}
 
 static void lv_disp_cb(lv_disp_drv_t *disp, const lv_area_t *area, lv_color_t *color_p)
 {
@@ -118,36 +104,15 @@ static void lv_touchpad_cb(lv_indev_drv_t *indev, lv_indev_data_t *data)
 {
     uint16_t touchX, touchY;
 
+    // If screen is not being touched, tell LVGL it is released
     if (!_lgfx.getTouch(&touchX, &touchY))
     {
-        if (_touch_active)
-        {
-            const int dx = static_cast<int>(_touch_last_x) - static_cast<int>(_touch_start_x);
-            const int dy = static_cast<int>(_touch_last_y) - static_cast<int>(_touch_start_y);
-
-            if ((abs(dx) >= 25) && (abs(dx) > abs(dy)))
-            {
-                _pending_swipe = (dx > 0) ? SWIPE_RIGHT : SWIPE_LEFT;
-            }
-            _touch_active = false;
-        }
-
         data->state = LV_INDEV_STATE_RELEASED;
         return;
-    };
-
-    if (!_touch_active)
-    {
-        _touch_active = true;
-        _touch_start_x = touchX;
-        _touch_start_y = touchY;
     }
-    _touch_last_x = touchX;
-    _touch_last_y = touchY;
 
+    // If it is touched, feed the live X/Y coordinates directly to LVGL
     data->state = LV_INDEV_STATE_PRESSED;
     data->point.x = touchX;
     data->point.y = touchY;
-
-    // Serial.printf("Touch = (%d, %d)\n", touchX, touchY);
 };

@@ -135,7 +135,7 @@ void executeRotation(Vector3d axis, double turns)
 }
 
 // Helper function to return to identity (0, 0, 1) in the shortest path
-void resetBloch()
+void receiver_reset_bloch()
 {
     Vector3d resetAxis(1, 0, 0);
     double resetTurns = 0.0;
@@ -145,6 +145,39 @@ void resetBloch()
     if (resetTurns > 0.001)
     {
         bloch.rotate(resetAxis, STEPS_PER_ROTATION * resetTurns);
+    }
+}
+
+bool receiver_apply_permute(const BlochSphere::permute_t permute)
+{
+    switch (permute)
+    {
+    case BlochSphere::PERMUTE_X:
+        executeRotation(Vector3d(1, 0, 0), 0.5);
+        return true;
+    case BlochSphere::PERMUTE_Y:
+        executeRotation(Vector3d(0, 1, 0), 0.5);
+        return true;
+    case BlochSphere::PERMUTE_Z:
+        executeRotation(Vector3d(0, 0, 1), 0.5);
+        return true;
+    case BlochSphere::PERMUTE_H:
+        executeRotation(Vector3d(0.707106, 0, 0.707106), 0.5);
+        return true;
+    case BlochSphere::PERMUTE_S:
+        executeRotation(Vector3d(0, 0, 1), 0.25);
+        return true;
+    case BlochSphere::PERMUTE_NS:
+        executeRotation(Vector3d(0, 0, 1), -0.25);
+        return true;
+    case BlochSphere::PERMUTE_T:
+        executeRotation(Vector3d(0, 0, 1), 0.125);
+        return true;
+    case BlochSphere::PERMUTE_NT:
+        executeRotation(Vector3d(0, 0, 1), -0.125);
+        return true;
+    default:
+        return false;
     }
 }
 
@@ -251,25 +284,25 @@ void receiver_loop()
 
             // Replaced raw bloch.rotate() with executeRotation() for accurate tracking
             else if (task == "Xgate")
-                executeRotation(Vector3d(1, 0, 0), 0.5);
+                receiver_apply_permute(BlochSphere::PERMUTE_X);
             else if (task == "Ygate")
-                executeRotation(Vector3d(0, 1, 0), 0.5);
+                receiver_apply_permute(BlochSphere::PERMUTE_Y);
             else if (task == "Zgate")
-                executeRotation(Vector3d(0, 0, 1), 0.5);
+                receiver_apply_permute(BlochSphere::PERMUTE_Z);
             else if (task == "Hgate")
-                executeRotation(Vector3d(0.707106, 0, 0.707106), 0.5);
+                receiver_apply_permute(BlochSphere::PERMUTE_H);
             else if (task == "Sgate")
-                executeRotation(Vector3d(0, 0, 1), 0.25);
+                receiver_apply_permute(BlochSphere::PERMUTE_S);
             else if (task == "Tgate")
-                executeRotation(Vector3d(0, 0, 1), 0.125);
+                receiver_apply_permute(BlochSphere::PERMUTE_T);
             else if (task == "S+gate")
-                executeRotation(Vector3d(0, 0, 1), -0.25);
+                receiver_apply_permute(BlochSphere::PERMUTE_NS);
             else if (task == "T+gate")
-                executeRotation(Vector3d(0, 0, 1), -0.125);
+                receiver_apply_permute(BlochSphere::PERMUTE_NT);
 
             // --- NEW: Reset Command ---
             else if (task == "reset")
-                resetBloch();
+                receiver_reset_bloch();
 
             else if (task == "led")
             {
