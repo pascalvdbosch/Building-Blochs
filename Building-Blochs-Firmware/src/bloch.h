@@ -25,6 +25,8 @@ public:
 	bool begin();
 	void loop();
 	void reset();
+	
+	bool isBusy() const; 
 
 	// FIXME: rotate(axis, degrees) pls
 	bool rotate(const Vector3d axis, const int steps);

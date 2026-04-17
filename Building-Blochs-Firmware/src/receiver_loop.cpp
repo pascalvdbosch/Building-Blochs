@@ -1,4 +1,5 @@
 #include "receiver.h"
+#include "gui.h"
 #include <Arduino.h>
 #include <ArduinoEigenDense.h>
 
@@ -216,7 +217,8 @@ void rechtsOnder() { executeRotation(Vector3d(0.707106, 0, -0.707106), -0.5); }
 
 void setLedRing(int r, int g, int b)
 {
-    // todo: implement
+    // Update the entire screen background
+    gui_set_screen_color(r, g, b);
 }
 
 bool pulse = false;
@@ -230,12 +232,16 @@ void receiver_loop()
         delay(500);
         pServer->startAdvertising();
         oldDeviceConnected = deviceConnected;
+
+        gui_set_ble_connected(false); // <--- ADD THIS
     }
 
     // Handle connection
     if (deviceConnected && !oldDeviceConnected)
     {
         oldDeviceConnected = deviceConnected;
+        
+        gui_set_ble_connected(true); // <--- ADD THIS
     }
 
     int newlineIndex = bleBuffer.indexOf('\n');
@@ -266,6 +272,8 @@ void receiver_loop()
         for (int i = 0; i < StringCount; i++)
         {
             String task = strs[i];
+
+            // gui_set_ble_task(task.c_str()); // <--- ADD THIS for real-time task display on GUI
 
             if (task == "voorwaarts")
                 voorwaarts();
@@ -331,9 +339,14 @@ void receiver_loop()
         }
     }
 
-    if (pulse && millis() > pulseEnd)
+if (pulse && millis() > pulseEnd)
     {
         pulse = false;
-        setLedRing(0, 0, 255);
+        
+        // Restore the standard background colors
+        gui_reset_screen_color();
+        
+        // Clear the active task so the BLE overlay returns to the idle "CONNECTED" screen
+        gui_set_ble_task("");
     }
 }

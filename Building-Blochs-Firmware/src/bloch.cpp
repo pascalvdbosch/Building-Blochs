@@ -309,3 +309,9 @@ void printMatrix3d(Matrix3d &m, const char *name)
         Serial.printf("\t%0.8f %0.8f %0.8f\n", m(r, 0), m(r, 1), m(r, 2));
     };
 };
+
+bool BlochSphere::isBusy() const
+{
+    // It's busy if there are moves in the queue or the state machine is active
+    return !_queue.empty() || _state == MOVE_START || _state == MOVE_BUSY || _state == MOVE_END;
+}
